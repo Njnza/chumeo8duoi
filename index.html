@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="ShopPro - Hệ thống quản lý bán hàng thông minh với QR Scanner và Google Sheets">
+  <title>ShopPro - Quản Lý Bán Hàng Thông Minh</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar" id="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-icon">🛒</div>
+      <span>ShopPro</span>
+    </a>
+    <ul class="navbar-nav" id="navMenu">
+      <li><a href="index.html" class="nav-link active"><i data-lucide="home"></i> Trang chủ</a></li>
+      <li><a href="scanner.html" class="nav-link"><i data-lucide="scan-line"></i> Quét mã</a></li>
+      <li><a href="shop.html" class="nav-link"><i data-lucide="shopping-bag"></i> Bán hàng</a></li>
+      <li><a href="admin.html" class="nav-link"><i data-lucide="layout-dashboard"></i> Quản lý</a></li>
+    </ul>
+    <button class="menu-toggle" id="menuToggle" onclick="toggleMenu()">
+      <i data-lucide="menu" style="width:24px;height:24px;"></i>
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- Hero Section -->
+      <section class="hero">
+        <h1><span class="text-gradient">ShopPro</span></h1>
+        <h2 style="font-weight: 400; font-size: 1.3rem; color: var(--text-secondary); margin-bottom: var(--space-md);">Quản Lý Bán Hàng Thông Minh</h2>
+        <p class="subtitle">
+          Quét mã QR/Barcode từ điện thoại, quản lý sản phẩm trên Google Sheets, 
+          và bán hàng mọi lúc mọi nơi với giao diện web hiện đại.
+        </p>
+        <div class="hero-actions">
+          <a href="scanner.html" class="btn btn-primary btn-xl">
+            <i data-lucide="scan-line"></i> Quét Mã Sản Phẩm
+          </a>
+          <a href="shop.html" class="btn btn-outline btn-xl">
+            <i data-lucide="shopping-bag"></i> Bán Hàng
+          </a>
+        </div>
+      </section>
+
+      <!-- Features Grid -->
+      <section class="features-grid" id="features">
+        <div class="feature-card animate-fadeInUp" style="animation-delay: 0.1s">
+          <div class="feature-icon">
+            <i data-lucide="scan-line"></i>
+          </div>
+          <h3>Quét Mã QR & Barcode</h3>
+          <p>Sử dụng camera điện thoại để quét mã QR, Barcode (EAN, UPC, Code128...) và tự động đẩy thông tin sản phẩm lên hệ thống.</p>
+        </div>
+
+        <div class="feature-card animate-fadeInUp" style="animation-delay: 0.2s">
+          <div class="feature-icon">
+            <i data-lucide="cloud"></i>
+          </div>
+          <h3>Google Sheets Database</h3>
+          <p>Dữ liệu được lưu trữ an toàn trên Google Sheets — dễ xem, dễ chỉnh sửa, và có thể truy cập từ bất kỳ đâu.</p>
+        </div>
+
+        <div class="feature-card animate-fadeInUp" style="animation-delay: 0.3s">
+          <div class="feature-icon">
+            <i data-lucide="shopping-cart"></i>
+          </div>
+          <h3>Bán Hàng Nhanh Chóng</h3>
+          <p>Giao diện POS trực quan, chọn sản phẩm, thêm vào giỏ hàng và tạo đơn hàng chỉ trong vài giây.</p>
+        </div>
+
+        <div class="feature-card animate-fadeInUp" style="animation-delay: 0.4s">
+          <div class="feature-icon">
+            <i data-lucide="bar-chart-3"></i>
+          </div>
+          <h3>Thống Kê & Báo Cáo</h3>
+          <p>Dashboard quản lý toàn diện: doanh thu, đơn hàng, sản phẩm bán chạy, tồn kho — tất cả trong một trang.</p>
+        </div>
+      </section>
+
+      <!-- How It Works -->
+      <section style="margin-top: var(--space-3xl);">
+        <h2 class="text-center mb-xl" style="font-size: 1.8rem;">
+          <span class="text-gradient">Cách Hoạt Động</span>
+        </h2>
+        
+        <div class="grid-3 gap-lg" style="margin-top: var(--space-xl);">
+          <div class="card text-center animate-fadeInUp" style="animation-delay: 0.15s">
+            <div style="font-size: 3rem; margin-bottom: var(--space-md);">📱</div>
+            <h4 style="margin-bottom: var(--space-sm); color: var(--accent);">Bước 1</h4>
+            <p class="text-secondary">Mở trang <strong>Quét Mã</strong> trên điện thoại, hướng camera vào mã QR hoặc Barcode trên sản phẩm.</p>
+          </div>
+
+          <div class="card text-center animate-fadeInUp" style="animation-delay: 0.25s">
+            <div style="font-size: 3rem; margin-bottom: var(--space-md);">📝</div>
+            <h4 style="margin-bottom: var(--space-sm); color: var(--accent);">Bước 2</h4>
+            <p class="text-secondary">Nhập thông tin sản phẩm (tên, giá, danh mục...) và nhấn <strong>Đẩy lên Sheet</strong> để lưu vào Google Sheets.</p>
+          </div>
+
+          <div class="card text-center animate-fadeInUp" style="animation-delay: 0.35s">
+            <div style="font-size: 3rem; margin-bottom: var(--space-md);">💰</div>
+            <h4 style="margin-bottom: var(--space-sm); color: var(--accent);">Bước 3</h4>
+            <p class="text-secondary">Mở trang <strong>Bán Hàng</strong> trên PC hoặc mobile để chọn sản phẩm, tạo đơn hàng và theo dõi doanh thu.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Stats (Demo) -->
+      <section style="margin-top: var(--space-3xl);" id="quickStats">
+        <div class="grid-4 gap-md" id="statsGrid">
+          <div class="stat-card animate-fadeInUp" style="animation-delay: 0.1s">
+            <div class="stat-icon primary"><i data-lucide="package"></i></div>
+            <div class="stat-value" id="statProducts">—</div>
+            <div class="stat-label">Sản phẩm</div>
+          </div>
+          <div class="stat-card animate-fadeInUp" style="animation-delay: 0.15s">
+            <div class="stat-icon accent"><i data-lucide="receipt"></i></div>
+            <div class="stat-value" id="statOrders">—</div>
+            <div class="stat-label">Đơn hàng</div>
+          </div>
+          <div class="stat-card animate-fadeInUp" style="animation-delay: 0.2s">
+            <div class="stat-icon success"><i data-lucide="trending-up"></i></div>
+            <div class="stat-value" id="statRevenue">—</div>
+            <div class="stat-label">Doanh thu</div>
+          </div>
+          <div class="stat-card animate-fadeInUp" style="animation-delay: 0.25s">
+            <div class="stat-icon warning"><i data-lucide="smartphone"></i></div>
+            <div class="stat-value">∞</div>
+            <div class="stat-label">Thiết bị hỗ trợ</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer style="text-align: center; margin-top: var(--space-3xl); padding-top: var(--space-xl); border-top: 1px solid var(--glass-border);">
+        <p class="text-muted" style="font-size: 0.85rem;">
+          ShopPro v1.0 — Quản lý bán hàng thông minh | Powered by Google Sheets
+        </p>
+      </footer>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    // Initialize Lucide icons
+    lucide.createIcons();
+
+    // Mobile menu toggle
+    function toggleMenu() {
+      document.getElementById('navMenu').classList.toggle('open');
+    }
+
+    // Load quick stats
+    async function loadStats() {
+      try {
+        const result = await getData('dashboard');
+        if (result.success && result.data) {
+          const d = result.data;
+          document.getElementById('statProducts').textContent = d.totalProducts || 0;
+          document.getElementById('statOrders').textContent = d.totalOrders || 0;
+          document.getElementById('statRevenue').textContent = formatCurrency(d.totalRevenue || 0);
+        }
+      } catch (e) {
+        console.log('Stats loading skipped:', e.message);
+      }
+    }
+
+    loadStats();
+  </script>
+</body>
+</html>

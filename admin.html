@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Quản lý sản phẩm, đơn hàng, danh mục và thống kê bán hàng">
+  <title>Quản Lý - ShopPro</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-icon">🛒</div>
+      <span>ShopPro</span>
+    </a>
+    <ul class="navbar-nav" id="navMenu">
+      <li><a href="index.html" class="nav-link"><i data-lucide="home"></i> Trang chủ</a></li>
+      <li><a href="scanner.html" class="nav-link"><i data-lucide="scan-line"></i> Quét mã</a></li>
+      <li><a href="shop.html" class="nav-link"><i data-lucide="shopping-bag"></i> Bán hàng</a></li>
+      <li><a href="admin.html" class="nav-link active"><i data-lucide="layout-dashboard"></i> Quản lý</a></li>
+    </ul>
+    <button class="menu-toggle" onclick="document.getElementById('navMenu').classList.toggle('open')">
+      <i data-lucide="menu" style="width:24px;height:24px;"></i>
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- API Notice -->
+      <div class="card hidden mb-lg" id="adminApiNotice" style="border-color: var(--warning); background: var(--warning-bg);">
+        <div class="flex items-center gap-md">
+          <i data-lucide="alert-triangle" style="color:var(--warning); flex-shrink:0;"></i>
+          <div>
+            <strong style="color:var(--warning);">Chế độ Demo</strong>
+            <p class="text-secondary" style="font-size:0.85rem;margin-top:2px;">Đang hiển thị dữ liệu mẫu. Cập nhật API_URL trong <code>js/config.js</code> để kết nối Google Sheets.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Page Header -->
+      <div class="page-header animate-fadeIn">
+        <h1><i data-lucide="layout-dashboard" style="width:28px;height:28px;vertical-align:middle;color:var(--accent);"></i> Quản Lý</h1>
+        <p>Dashboard, sản phẩm, đơn hàng và danh mục</p>
+      </div>
+
+      <!-- Admin Tabs -->
+      <div class="admin-tabs">
+        <button class="admin-tab active" data-tab="dashboard" onclick="switchTab('dashboard')">
+          <i data-lucide="bar-chart-3"></i> Dashboard
+        </button>
+        <button class="admin-tab" data-tab="products" onclick="switchTab('products')">
+          <i data-lucide="package"></i> Sản Phẩm
+        </button>
+        <button class="admin-tab" data-tab="orders" onclick="switchTab('orders')">
+          <i data-lucide="receipt"></i> Đơn Hàng
+        </button>
+        <button class="admin-tab" data-tab="categories" onclick="switchTab('categories')">
+          <i data-lucide="tags"></i> Danh Mục
+        </button>
+      </div>
+
+      <!-- ==================== DASHBOARD TAB ==================== -->
+      <div class="tab-panel active" id="panel-dashboard">
+        <!-- Stats Row -->
+        <div class="grid-4 gap-md mb-xl">
+          <div class="stat-card">
+            <div class="stat-icon primary"><i data-lucide="package"></i></div>
+            <div class="stat-value" id="dashTotalProducts">—</div>
+            <div class="stat-label">Tổng sản phẩm</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon accent"><i data-lucide="receipt"></i></div>
+            <div class="stat-value" id="dashTotalOrders">—</div>
+            <div class="stat-label">Tổng đơn hàng</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon success"><i data-lucide="wallet"></i></div>
+            <div class="stat-value" id="dashTotalRevenue">—</div>
+            <div class="stat-label">Tổng doanh thu</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon warning"><i data-lucide="sun"></i></div>
+            <div class="stat-value" id="dashTodayRevenue">—</div>
+            <div class="stat-label">Hôm nay</div>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="grid-2 gap-lg mb-xl">
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="trending-up" style="width:18px;height:18px;color:var(--accent);"></i> Doanh Thu 7 Ngày</h3>
+            </div>
+            <div class="card-body" id="revenueChart">
+              <div class="loading-spinner" style="margin:var(--space-xl) auto;"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="trophy" style="width:18px;height:18px;color:var(--warning);"></i> Top Sản Phẩm</h3>
+            </div>
+            <div class="card-body" id="topProducts">
+              <div class="loading-spinner" style="margin:var(--space-xl) auto;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row -->
+        <div class="grid-2 gap-lg">
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="alert-circle" style="width:18px;height:18px;color:var(--danger);"></i> Sắp Hết Hàng</h3>
+            </div>
+            <div class="card-body" id="lowStockList">
+              <div class="loading-spinner" style="margin:var(--space-xl) auto;"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3><i data-lucide="clock" style="width:18px;height:18px;color:var(--info);"></i> Đơn Hàng Gần Đây</h3>
+            </div>
+            <div class="card-body" id="recentOrdersList">
+              <div class="loading-spinner" style="margin:var(--space-xl) auto;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== PRODUCTS TAB ==================== -->
+      <div class="tab-panel" id="panel-products">
+        <div class="flex justify-between items-center mb-lg">
+          <h2>Sản Phẩm</h2>
+          <div class="btn-group">
+            <button class="btn btn-outline" onclick="loadAdminProducts()">
+              <i data-lucide="refresh-cw"></i> Làm mới
+            </button>
+            <button class="btn btn-primary" onclick="openAddProduct()">
+              <i data-lucide="plus"></i> Thêm SP
+            </button>
+          </div>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Sản phẩm</th>
+                <th>Danh mục</th>
+                <th>Giá bán</th>
+                <th>Tồn kho</th>
+                <th>Trạng thái</th>
+                <th>Ngày tạo</th>
+                <th>Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="productsTableBody">
+              <tr><td colspan="7" class="text-center" style="padding:var(--space-2xl);"><p class="text-muted">Chọn tab "Sản Phẩm" để xem danh sách</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================== ORDERS TAB ==================== -->
+      <div class="tab-panel" id="panel-orders">
+        <div class="flex justify-between items-center mb-lg">
+          <h2>Đơn Hàng</h2>
+          <button class="btn btn-outline" onclick="loadAdminOrders()">
+            <i data-lucide="refresh-cw"></i> Làm mới
+          </button>
+        </div>
+
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Mã đơn</th>
+                <th>Khách hàng</th>
+                <th>Sản phẩm</th>
+                <th>Tổng tiền</th>
+                <th>Trạng thái</th>
+                <th>Thanh toán</th>
+                <th>Ngày tạo</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <tr><td colspan="7" class="text-center" style="padding:var(--space-2xl);"><p class="text-muted">Chọn tab "Đơn Hàng" để xem danh sách</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================== CATEGORIES TAB ==================== -->
+      <div class="tab-panel" id="panel-categories">
+        <div class="grid-2 gap-lg">
+          <!-- Categories List -->
+          <div>
+            <h2 class="mb-lg">Danh Mục</h2>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Tên</th>
+                    <th>Mô tả</th>
+                    <th>Màu</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody id="categoriesTableBody">
+                  <tr><td colspan="4" class="text-center"><p class="text-muted">Đang tải...</p></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Add Category -->
+          <div>
+            <h2 class="mb-lg">Thêm Danh Mục</h2>
+            <div class="card">
+              <form id="addCategoryForm" onsubmit="addNewCategory(event)">
+                <div class="form-group">
+                  <label class="form-label">Tên danh mục *</label>
+                  <input type="text" class="form-control" id="newCatName" placeholder="VD: Thực phẩm" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Mô tả</label>
+                  <input type="text" class="form-control" id="newCatDesc" placeholder="Mô tả ngắn">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Màu sắc</label>
+                  <div class="flex items-center gap-md">
+                    <input type="color" id="newCatColor" value="#7c6aef" style="width:50px;height:40px;border:none;background:transparent;cursor:pointer;">
+                    <input type="text" class="form-control" value="#7c6aef" onchange="document.getElementById('newCatColor').value=this.value" style="max-width:120px;font-family:monospace;">
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-full mt-md">
+                  <i data-lucide="plus"></i> Thêm Danh Mục
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Product Modal -->
+  <div class="modal-backdrop" id="productModal-backdrop" onclick="closeModal('productModal')"></div>
+  <div class="modal" id="productModal" style="max-width:600px;">
+    <div class="modal-header">
+      <h3 id="productModalTitle">Thêm Sản Phẩm Mới</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeModal('productModal')">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="editProductForm" onsubmit="saveProduct(event)">
+        <input type="hidden" id="editProdId">
+        
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Mã SKU *</label>
+            <input type="text" class="form-control" id="editProdSku" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Trạng thái</label>
+            <select class="form-control" id="editProdStatus">
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Ẩn</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Tên sản phẩm *</label>
+          <input type="text" class="form-control" id="editProdName" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Mô tả</label>
+          <textarea class="form-control" id="editProdDescription" rows="2"></textarea>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Giá bán (VNĐ) *</label>
+            <input type="number" class="form-control" id="editProdPrice" min="0" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Giá KM (VNĐ)</label>
+            <input type="number" class="form-control" id="editProdSalePrice" min="0">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Danh mục</label>
+            <select class="form-control" id="editProdCategory">
+              <option value="">-- Chọn --</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tồn kho</label>
+            <input type="number" class="form-control" id="editProdStock" min="0">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">URL hình ảnh</label>
+          <input type="url" class="form-control" id="editProdImageUrl">
+        </div>
+
+        <div class="flex gap-sm mt-lg">
+          <button type="button" class="btn btn-outline" onclick="closeModal('productModal')">Hủy</button>
+          <button type="submit" class="btn btn-primary w-full" id="btnSaveProduct">
+            <i data-lucide="save"></i> Lưu
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

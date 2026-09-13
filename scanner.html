@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Quét mã QR/Barcode để thêm sản phẩm vào hệ thống bán hàng">
+  <title>Quét Mã Sản Phẩm - ShopPro</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-icon">🛒</div>
+      <span>ShopPro</span>
+    </a>
+    <ul class="navbar-nav" id="navMenu">
+      <li><a href="index.html" class="nav-link"><i data-lucide="home"></i> Trang chủ</a></li>
+      <li><a href="scanner.html" class="nav-link active"><i data-lucide="scan-line"></i> Quét mã</a></li>
+      <li><a href="shop.html" class="nav-link"><i data-lucide="shopping-bag"></i> Bán hàng</a></li>
+      <li><a href="admin.html" class="nav-link"><i data-lucide="layout-dashboard"></i> Quản lý</a></li>
+    </ul>
+    <button class="menu-toggle" onclick="document.getElementById('navMenu').classList.toggle('open')">
+      <i data-lucide="menu" style="width:24px;height:24px;"></i>
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <div class="scanner-container">
+        
+        <!-- Page Header -->
+        <div class="page-header text-center animate-fadeIn">
+          <h1><i data-lucide="scan-line" style="width:32px;height:32px;vertical-align:middle;color:var(--accent);"></i> Quét Mã Sản Phẩm</h1>
+          <p>Quét mã QR hoặc Barcode để thêm/cập nhật sản phẩm vào Google Sheets</p>
+        </div>
+
+        <!-- Scanner Preview -->
+        <div class="scanner-preview animate-fadeInUp">
+          <div id="qr-reader" style="width: 100%;"></div>
+        </div>
+
+        <!-- Scanner Controls -->
+        <div class="flex justify-center gap-md mb-lg" id="scannerControls">
+          <button class="btn btn-primary btn-lg" id="btnStart" onclick="startScanning()">
+            <i data-lucide="camera"></i> Bắt Đầu Quét
+          </button>
+          <button class="btn btn-danger btn-lg hidden" id="btnStop" onclick="stopScanning()">
+            <i data-lucide="camera-off"></i> Dừng Quét
+          </button>
+          <button class="btn btn-outline btn-lg" onclick="manualEntry()">
+            <i data-lucide="keyboard"></i> Nhập Thủ Công
+          </button>
+        </div>
+
+        <!-- Scanner Status -->
+        <div class="text-center mb-lg" id="scannerStatus">
+          <div class="badge badge-info">Nhấn "Bắt Đầu Quét" để mở camera</div>
+        </div>
+
+        <!-- Scan Result -->
+        <div class="scanner-result hidden animate-fadeIn" id="scanResult">
+          <div class="result-icon">
+            <i data-lucide="check"></i>
+          </div>
+          <div class="result-text">
+            <div class="result-label">Mã đã quét (<span id="scanFormat">—</span>)</div>
+            <div class="result-value" id="scannedValue">—</div>
+          </div>
+        </div>
+
+        <!-- Product Form -->
+        <div class="card hidden animate-fadeInUp" id="productForm">
+          <div class="card-header">
+            <h3 id="formTitle">📦 Thông Tin Sản Phẩm</h3>
+            <button class="btn btn-ghost btn-sm" onclick="resetForm()">
+              <i data-lucide="rotate-ccw"></i> Reset
+            </button>
+          </div>
+          <div class="card-body">
+            <form id="productFormElement" onsubmit="submitProduct(event)">
+              <input type="hidden" id="prodId" value="">
+
+              <div class="form-group">
+                <label class="form-label">Mã SKU / Barcode *</label>
+                <input type="text" class="form-control" id="prodSku" placeholder="VD: SP-001 hoặc 8936082031242" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Tên sản phẩm *</label>
+                <input type="text" class="form-control" id="prodName" placeholder="VD: Áo thun nam basic" required>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">Mô tả</label>
+                <textarea class="form-control" id="prodDescription" rows="2" placeholder="Mô tả ngắn về sản phẩm"></textarea>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Giá bán (VNĐ) *</label>
+                  <input type="number" class="form-control" id="prodPrice" placeholder="199000" min="0" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Giá khuyến mãi (VNĐ)</label>
+                  <input type="number" class="form-control" id="prodSalePrice" placeholder="149000" min="0">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Danh mục</label>
+                  <select class="form-control" id="prodCategory">
+                    <option value="">-- Chọn danh mục --</option>
+                    <option value="Thời trang">Thời trang</option>
+                    <option value="Điện tử">Điện tử</option>
+                    <option value="Gia dụng">Gia dụng</option>
+                    <option value="Phụ kiện">Phụ kiện</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Số lượng tồn kho</label>
+                  <input type="number" class="form-control" id="prodStock" placeholder="100" min="0">
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">URL hình ảnh</label>
+                <input type="url" class="form-control" id="prodImageUrl" placeholder="https://example.com/image.jpg">
+                <p class="form-help">Paste link hình ảnh sản phẩm (không bắt buộc)</p>
+              </div>
+
+              <div class="flex gap-md mt-lg">
+                <button type="submit" class="btn btn-primary btn-lg w-full" id="btnSubmit">
+                  <i data-lucide="upload-cloud"></i> Đẩy Lên Google Sheets
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Scan History -->
+        <div class="card mt-xl">
+          <div class="card-header">
+            <h3><i data-lucide="history"></i> Lịch Sử Quét</h3>
+          </div>
+          <div class="card-body" id="historyList">
+            <div class="cart-empty" id="historyEmpty">
+              <i data-lucide="scan-line" style="width:48px;height:48px;"></i>
+              <p class="mt-md">Chưa có sản phẩm nào được quét</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/scanner.js"></script>
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

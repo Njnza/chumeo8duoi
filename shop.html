@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Trang bán hàng - Chọn sản phẩm, tạo đơn hàng nhanh chóng">
+  <title>Bán Hàng - ShopPro</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <style>
+    /* Shop-specific layout */
+    .shop-layout {
+      display: flex;
+      gap: var(--space-lg);
+    }
+    .shop-main {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    /* Cart sidebar always visible on desktop */
+    @media (min-width: 769px) {
+      .cart-sidebar {
+        position: sticky;
+        top: calc(var(--nav-height) + var(--space-lg));
+        right: auto;
+        width: 340px;
+        height: calc(100vh - var(--nav-height) - var(--space-xl));
+        transform: none;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--glass-border);
+        flex-shrink: 0;
+      }
+      .cart-sidebar.open { transform: none; }
+      .floating-cart-btn { display: none !important; }
+    }
+
+    @media (max-width: 768px) {
+      .shop-layout { flex-direction: column; }
+      .floating-cart-btn {
+        position: fixed;
+        bottom: var(--space-lg);
+        right: var(--space-lg);
+        z-index: 99;
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        box-shadow: var(--shadow-lg), var(--shadow-glow);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+      }
+      .floating-cart-btn:hover {
+        transform: scale(1.1);
+      }
+      .floating-cart-btn .badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--danger);
+        color: white;
+        font-size: 0.7rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-icon">🛒</div>
+      <span>ShopPro</span>
+    </a>
+    <ul class="navbar-nav" id="navMenu">
+      <li><a href="index.html" class="nav-link"><i data-lucide="home"></i> Trang chủ</a></li>
+      <li><a href="scanner.html" class="nav-link"><i data-lucide="scan-line"></i> Quét mã</a></li>
+      <li><a href="shop.html" class="nav-link active"><i data-lucide="shopping-bag"></i> Bán hàng</a></li>
+      <li><a href="admin.html" class="nav-link"><i data-lucide="layout-dashboard"></i> Quản lý</a></li>
+    </ul>
+    <button class="menu-toggle" onclick="document.getElementById('navMenu').classList.toggle('open')">
+      <i data-lucide="menu" style="width:24px;height:24px;"></i>
+    </button>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- API Notice -->
+      <div class="card hidden mb-lg" id="apiNotice" style="border-color: var(--warning); background: var(--warning-bg);">
+        <div class="flex items-center gap-md">
+          <i data-lucide="alert-triangle" style="color:var(--warning); flex-shrink:0;"></i>
+          <div>
+            <strong style="color:var(--warning);">Chế độ Demo</strong>
+            <p class="text-secondary" style="font-size:0.85rem;margin-top:2px;">API chưa được cấu hình. Đang hiển thị dữ liệu mẫu. Cập nhật API_URL trong <code>js/config.js</code> để kết nối Google Sheets.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="shop-layout">
+        <!-- Products Section -->
+        <div class="shop-main">
+          <!-- Header -->
+          <div class="page-header animate-fadeIn">
+            <h1><i data-lucide="shopping-bag" style="width:28px;height:28px;vertical-align:middle;color:var(--accent);"></i> Bán Hàng</h1>
+            <p>Chọn sản phẩm để thêm vào giỏ hàng</p>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="toolbar">
+            <div class="toolbar-search search-input">
+              <i data-lucide="search"></i>
+              <input type="text" class="form-control" placeholder="Tìm sản phẩm theo tên hoặc SKU..." oninput="searchProducts(this.value)" id="searchInput">
+            </div>
+            <button class="btn btn-outline" onclick="loadShopProducts()">
+              <i data-lucide="refresh-cw"></i>
+            </button>
+          </div>
+
+          <!-- Category Filters -->
+          <div class="filter-group mb-lg" id="categoryFilters">
+            <button class="filter-chip active" onclick="filterByCategory('')">Tất cả</button>
+          </div>
+
+          <!-- Product Grid -->
+          <div class="product-grid" id="productGrid">
+            <!-- Products loaded dynamically -->
+          </div>
+        </div>
+
+        <!-- Cart Sidebar -->
+        <aside class="cart-sidebar open" id="cartSidebar">
+          <div class="cart-header">
+            <h3>
+              <i data-lucide="shopping-cart" style="width:20px;height:20px;"></i>
+              Giỏ Hàng
+              <span class="cart-count" id="cartCount">0</span>
+            </h3>
+            <button class="btn btn-ghost btn-sm" onclick="closeCartSidebar()" style="display:none;" id="btnCloseCart">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+
+          <div class="cart-items" id="cartItems">
+            <!-- Cart items rendered dynamically -->
+          </div>
+
+          <div class="cart-footer">
+            <div class="cart-total">
+              <span class="cart-total-label">Tổng cộng:</span>
+              <span class="cart-total-value" id="cartTotalValue">0₫</span>
+            </div>
+            <div class="flex gap-sm">
+              <button class="btn btn-outline btn-sm" id="btnClear" onclick="clearCart()" disabled>
+                <i data-lucide="trash"></i> Xóa
+              </button>
+              <button class="btn btn-primary w-full" id="btnCheckout" onclick="openCheckout()" disabled>
+                <i data-lucide="credit-card"></i> Thanh Toán
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      <!-- Floating Cart Button (Mobile) -->
+      <button class="floating-cart-btn" onclick="toggleCartSidebar()" id="floatingCartBtn">
+        <i data-lucide="shopping-cart" style="width:24px;height:24px;"></i>
+        <span class="badge" id="floatingCartCount">0</span>
+      </button>
+    </div>
+  </main>
+
+  <!-- Checkout Modal -->
+  <div class="modal-backdrop" id="checkoutModal-backdrop" onclick="closeModal('checkoutModal')"></div>
+  <div class="modal" id="checkoutModal">
+    <div class="modal-header">
+      <h3><i data-lucide="receipt" style="width:20px;height:20px;color:var(--accent);"></i> Tạo Đơn Hàng</h3>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="closeModal('checkoutModal')">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="checkoutForm" onsubmit="submitOrder(event)">
+        <!-- Order Summary -->
+        <div class="order-summary">
+          <h4 style="margin-bottom: var(--space-md); font-size: 0.95rem;">Chi tiết đơn hàng</h4>
+          <div id="orderItems">
+            <!-- Filled dynamically -->
+          </div>
+          <hr class="order-divider">
+          <div class="order-total">
+            <span>Tổng tiền:</span>
+            <span class="text-accent" id="orderTotalDisplay">0₫</span>
+          </div>
+        </div>
+
+        <!-- Customer Info -->
+        <div class="form-group">
+          <label class="form-label">Tên khách hàng</label>
+          <input type="text" class="form-control" id="customerName" placeholder="Khách vãng lai">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Số điện thoại</label>
+          <input type="tel" class="form-control" id="customerPhone" placeholder="0901234567">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Phương thức thanh toán</label>
+          <select class="form-control" id="paymentMethod">
+            <option value="cash">💵 Tiền mặt</option>
+            <option value="transfer">🏦 Chuyển khoản</option>
+            <option value="momo">📱 MoMo</option>
+            <option value="zalopay">📱 ZaloPay</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Ghi chú</label>
+          <textarea class="form-control" id="orderNote" rows="2" placeholder="Ghi chú thêm (không bắt buộc)"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success btn-lg w-full" id="btnSubmitOrder">
+          <i data-lucide="check-circle"></i> Xác Nhận Đơn Hàng
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/shop.js"></script>
+  <script>
+    lucide.createIcons();
+    
+    // Show close button on mobile
+    if (window.innerWidth <= 768) {
+      document.getElementById('btnCloseCart').style.display = 'flex';
+      document.getElementById('cartSidebar').classList.remove('open');
+    }
+  </script>
+</body>
+</html>
