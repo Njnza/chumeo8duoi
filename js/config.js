@@ -230,7 +230,7 @@ function closeModal(modalId) {
  */
 function isApiConfigured() {
   return APP_CONFIG.API_URL && 
-         APP_CONFIG.API_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_DEPLOYMENT_URL_HERE';
+         APP_CONFIG.API_URL !== 'https://script.google.com/macros/s/AKfycbxxrhhonJhIvRhAI4wooyvcwOOla8mUyKhmsVLV52YlKdcUwKiZaT7lVg-IIdJ3ce6I/exec';
 }
 
 /**
