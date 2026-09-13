@@ -230,7 +230,7 @@ function closeModal(modalId) {
  */
 function isApiConfigured() {
   return APP_CONFIG.API_URL && 
-         APP_CONFIG.API_URL !== 'https://script.google.com/macros/s/AKfycbxxrhhonJhIvRhAI4wooyvcwOOla8mUyKhmsVLV52YlKdcUwKiZaT7lVg-IIdJ3ce6I/exec';
+         APP_CONFIG.API_URL !== 'https://script.google.com/macros/s/AKfycbwUKyQuCoyZDfF-Vk-HJxXW-3N2Y3qlHhUC6IkWyRUFt86-n7ltoCbrOGXtfw0FoiwV/exec';
 }
 
 /**
