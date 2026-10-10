@@ -1085,6 +1085,47 @@
     }
   }
 
+  async function onBarcodeOrSearchEnter(code) {
+    code = (code || '').trim();
+    if (!code) return;
+    try {
+      // 1. Check exact barcode match first
+      const product = await api.getProductByBarcode(code);
+      if (product) {
+        addToCart(product.id);
+        showToast('success', 'Đã quét mã', `${product.name} — ${formatCurrency(product.price)}`);
+        return;
+      }
+
+      // 2. If current filtered products has exactly 1 item, add it to cart
+      if (products && products.length === 1) {
+        addToCart(products[0].id);
+        showToast('success', 'Đã thêm sản phẩm', `${products[0].name} — ${formatCurrency(products[0].price)}`);
+        searchQuery = '';
+        const searchInput = document.getElementById('posSearchInput');
+        if (searchInput) searchInput.value = '';
+        loadProducts();
+        return;
+      }
+
+      // 3. Otherwise reload products with search query
+      searchQuery = code;
+      await loadProducts();
+      if (products.length === 1) {
+        addToCart(products[0].id);
+        showToast('success', 'Đã thêm sản phẩm', `${products[0].name} — ${formatCurrency(products[0].price)}`);
+        searchQuery = '';
+        const searchInput = document.getElementById('posSearchInput');
+        if (searchInput) searchInput.value = '';
+        loadProducts();
+      } else if (products.length === 0) {
+        promptQuickAddProduct(code);
+      }
+    } catch (err) {
+      console.error('Barcode/Search Enter error:', err);
+    }
+  }
+
   function quickAddProductPrompt() {
     promptQuickAddProduct('');
   }

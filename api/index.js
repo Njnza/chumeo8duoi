@@ -32,6 +32,69 @@ function verifyPin(pin, storedPin) {
   }
 }
 
+// ==================== VIETNAMESE UNACCENTED SEARCH HELPERS ====================
+const VIETNAMESE_MAP = {
+  a: '[aàáảãạăằắẳẵặâầấẩẫậ]',
+  e: '[eèéẻẽẹêềếểễệ]',
+  i: '[iìíỉĩị]',
+  o: '[oòóỏõọôồốổỗộơờớởỡợ]',
+  u: '[uùúủũụưừứửữự]',
+  y: '[yỳýỷỹỵ]',
+  d: '[dđ]',
+};
+
+function removeVietnameseTones(str) {
+  if (!str) return '';
+  str = String(str).toLowerCase();
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+  str = str.replace(/đ/g, 'd');
+  str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, '');
+  str = str.replace(/\u02C6|\u0306|\u031B/g, '');
+  return str.trim();
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function buildVietnameseRegex(term) {
+  if (!term) return new RegExp('', 'i');
+  const normalized = removeVietnameseTones(term);
+  let pattern = '';
+  for (const ch of normalized) {
+    if (VIETNAMESE_MAP[ch]) {
+      pattern += VIETNAMESE_MAP[ch];
+    } else if (/[a-z0-9]/i.test(ch)) {
+      pattern += ch;
+    } else if (/\s+/.test(ch)) {
+      pattern += '\\s+';
+    } else {
+      pattern += escapeRegex(ch);
+    }
+  }
+  return new RegExp(pattern, 'i');
+}
+
+function buildVietnameseSearchQuery(searchString, fields = ['name', 'sku', 'barcode']) {
+  if (!searchString || !searchString.trim()) return null;
+  const tokens = searchString.trim().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return null;
+
+  return {
+    $and: tokens.map(token => {
+      const reg = buildVietnameseRegex(token);
+      return {
+        $or: fields.map(f => ({ [f]: reg }))
+      };
+    })
+  };
+}
+
 // ==================== 1. PRODUCTS ====================
 app.get('/api/products', async (req, res) => {
   try {
@@ -42,8 +105,10 @@ app.get('/api/products', async (req, res) => {
     if (status) query.status = status;
     if (category_id) query.category_id = parseInt(category_id, 10);
     if (search) {
-      const regex = new RegExp(search, 'i');
-      query.$or = [{ name: regex }, { sku: regex }, { barcode: regex }];
+      const searchCond = buildVietnameseSearchQuery(search, ['name', 'sku', 'barcode', 'description']);
+      if (searchCond) {
+        query.$and = searchCond.$and;
+      }
     }
     if (low_stock === 'true') {
       query.$expr = { $and: [{ $gt: ['$stock', 0] }, { $lte: ['$stock', '$min_stock'] }] };
@@ -315,8 +380,10 @@ app.get('/api/customers', async (req, res) => {
     const { search, limit } = req.query;
     const query = {};
     if (search) {
-      const regex = new RegExp(search, 'i');
-      query.$or = [{ name: regex }, { phone: regex }];
+      const searchCond = buildVietnameseSearchQuery(search, ['name', 'phone', 'email', 'address']);
+      if (searchCond) {
+        query.$and = searchCond.$and;
+      }
     }
     let cursor = db.collection('customers').find(query).sort({ updated_at: -1, id: -1 });
     if (limit) cursor = cursor.limit(parseInt(limit, 10));
@@ -430,10 +497,17 @@ async function generateOrderCode(db) {
 app.get('/api/orders', async (req, res) => {
   try {
     const db = await getDatabase();
-    const { status, customer_id, from, to, limit, offset } = req.query;
+    const { status, customer_id, from, to, limit, offset, search, payment_method } = req.query;
     const query = {};
     if (status) query.status = status;
+    if (payment_method) query.payment_method = payment_method;
     if (customer_id) query.customer_id = parseInt(customer_id, 10);
+    if (search) {
+      const searchCond = buildVietnameseSearchQuery(search, ['order_code', 'customer_name', 'customer_phone']);
+      if (searchCond) {
+        query.$and = searchCond.$and;
+      }
+    }
     if (from || to) {
       query.created_at = {};
       if (from) query.created_at.$gte = new Date(`${from}T00:00:00.000Z`);

@@ -952,6 +952,33 @@ function formatNumber(amount) {
   if (!amount && amount !== 0) return '0';
   return new Intl.NumberFormat('vi-VN').format(amount);
 }
+window.formatNumber = formatNumber;
+
+// ==================== VIETNAMESE UNACCENTED SEARCH HELPERS ====================
+function removeVietnameseTones(str) {
+  if (!str) return '';
+  str = String(str).toLowerCase();
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+  str = str.replace(/đ/g, 'd');
+  str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, '');
+  str = str.replace(/\u02C6|\u0306|\u031B/g, '');
+  return str.trim();
+}
+window.removeVietnameseTones = removeVietnameseTones;
+
+function matchVietnameseSearch(targetText, searchQuery) {
+  if (!searchQuery || !searchQuery.trim()) return true;
+  if (!targetText) return false;
+  const targetNorm = removeVietnameseTones(targetText);
+  const queryTokens = removeVietnameseTones(searchQuery).split(/\s+/).filter(Boolean);
+  return queryTokens.every(token => targetNorm.includes(token));
+}
+window.matchVietnameseSearch = matchVietnameseSearch;
 
 function formatDate(dateStr) {
   if (!dateStr) return '';
