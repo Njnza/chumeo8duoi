@@ -19,8 +19,13 @@ async function getDatabase() {
     return cachedDb;
   }
 
+  const connectionUri = process.env.MONGODB_URI || process.env.MONGODB_URL || process.env.STORAGE_MONGODB_URI || uri;
+  if (!connectionUri) {
+    throw new Error('Chưa cấu hình MONGODB_URI trên Vercel. Vui lòng vào Vercel -> Settings -> Environment Variables để thêm biến MONGODB_URI.');
+  }
+
   if (!cachedClient) {
-    cachedClient = new MongoClient(uri, {
+    cachedClient = new MongoClient(connectionUri, {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 8000,
       socketTimeoutMS: 45000,
