@@ -195,6 +195,19 @@ function registerPage(name, module) {
 // ==================== USER & AUTH STATE ====================
 let currentUser = null;
 
+function getCurrentUser() {
+  if (currentUser) return currentUser;
+  try {
+    const saved = sessionStorage.getItem('shoppro_user');
+    if (saved) {
+      currentUser = JSON.parse(saved);
+      return currentUser;
+    }
+  } catch (_) {}
+  return null;
+}
+window.getCurrentUser = getCurrentUser;
+
 async function initCurrentUser() {
   try {
     const saved = sessionStorage.getItem('shoppro_user');
