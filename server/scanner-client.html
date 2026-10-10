@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Shop Scanner</title>
+  <!-- PWA Metadata (SC-01) -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Shop Scanner">
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <link rel="apple-touch-icon" href="/icon.svg">
+  <!-- Top-tier Open Source Barcode Engines from GitHub -->
+  <script src="/libs/zxing-wasm.js"></script>
+  <script src="/libs/quagga.min.js"></script>
+  <script src="/libs/html5-qrcode.min.js"></script>
+  <script src="/libs/zxing.min.js"></script>
+  <script>
+    // Initialize & Pre-warm ZXing-C++ WebAssembly Module
+    function initWasmEngine() {
+      if (typeof ZXingWASM !== 'undefined' && ZXingWASM.setZXingModuleOverrides) {
+        ZXingWASM.setZXingModuleOverrides({
+          locateFile: (path, prefix) => '/libs/' + path
+        });
+        if (ZXingWASM.prepareZXingModule) {
+          ZXingWASM.prepareZXingModule().catch(() => {});
+        }
+      }
+    }
+    initWasmEngine();
+    window.addEventListener('DOMContentLoaded', initWasmEngine);
+
+    window.addEventListener('error', function(e) {
+      if (e.target && e.target.tagName === 'SCRIPT') {
+        const src = e.target.getAttribute('src') || '';
+        if (src.includes('zxing-wasm') && typeof ZXingWASM === 'undefined') {
+          const s = document.createElement('script');
+          s.src = 'https://fastly.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js';
+          s.onload = initWasmEngine;
+          document.head.appendChild(s);
+        }
+        if (src.includes('quagga') && typeof Quagga === 'undefined') {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js';
+          document.head.appendChild(s);
+        }
+        if (src.includes('html5-qrcode') && typeof Html5Qrcode === 'undefined') {
+          const s = document.createElement('script');
+          s.src = 'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js';
+          document.head.appendChild(s);
+        }
+        if (src.includes('zxing') && typeof ZXing === 'undefined') {
+          const s = document.createElement('script');
+          s.src = 'https://unpkg.com/@zxing/library@0.23.0/umd/index.min.js';
+          document.head.appendChild(s);
+        }
+      }
+    }, true);
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/scanner-client.css">
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="logo">
+      <div class="logo-icon">🛒</div>
+      <div>
+        <div class="logo-text">Shop</div>
+        <div class="logo-sub">Máy quét di động</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Status Bar -->
+  <div class="status-bar connecting" id="wsStatus">
+    <span class="status-dot"></span>
+    <span>Đang kết nối với Shop Desktop...</span>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-container">
+
+    <!-- iOS Notice -->
+    <div class="notice-card" id="httpsNotice" style="display: none;">
+      <strong>💡 Lưu ý cho Safari (iPhone):</strong><br>
+      • Nhấn <strong>"📸 Chụp ảnh quét mã"</strong> bên dưới để quét ngay.<br>
+      • Hoặc <a id="httpsLink" href="#">Bấm vào đây để mở bản HTTPS</a> (cho quay video liên tục).
+    </div>
+
+    <!-- PWA Install Banner (SC-01) -->
+    <div class="pwa-install-banner" id="pwaInstallBanner">
+      <div class="pwa-info">
+        <img src="/icon.svg" class="pwa-icon" alt="App Icon">
+        <div>
+          <div style="font-weight:700;">Cài Đặt Shop Scanner</div>
+          <div style="font-size:0.7rem; color:#94a3b8;">Thêm vào màn hình chính để mở tức thì</div>
+        </div>
+      </div>
+      <button class="btn-install" onclick="installPwaApp()">📲 Cài đặt</button>
+    </div>
+
+    <!-- ==================== PAGE: SCAN ==================== -->
+    <div class="page active" id="pageScan">
+
+      <!-- Batch Mode Switch Card (SC-02) -->
+      <div class="batch-switch-card" id="batchSwitchCard">
+        <div class="batch-switch-info">
+          <div class="batch-switch-title">
+            <span>📦 Chế độ gom hàng (Batch Scan)</span>
+            <span class="badge" id="batchBadge" style="font-size:0.65rem; background:#e0f2fe; color:#0369a1; padding:2px 6px; border-radius:10px;">TẮT</span>
+          </div>
+          <div class="batch-switch-sub">Quét liên tục nhiều món, lưu danh sách tạm rồi gửi 1 chạm về POS</div>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="chkBatchMode" onchange="toggleBatchMode(this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <!-- Scanner Area -->
+      <div class="scanner-box">
+        <div class="scanner-reader-wrap" id="readerWrap" style="display:none;">
+          <div id="reader"></div>
+          <div class="viewfinder-overlay">
+            <div class="viewfinder-box">
+              <div class="viewfinder-corner top-left"></div>
+              <div class="viewfinder-corner top-right"></div>
+              <div class="viewfinder-corner bottom-left"></div>
+              <div class="viewfinder-corner bottom-right"></div>
+              <div class="viewfinder-laser"></div>
+            </div>
+            <div class="viewfinder-tip">
+              <span>🎯</span> Đặt tem mã vạch vào giữa khung để quét tức thì
+            </div>
+            <div class="viewfinder-controls">
+              <button type="button" class="vf-btn vf-zoom-btn" style="display:none;">
+                🔍 Zoom 2x
+              </button>
+              <button type="button" class="vf-btn vf-torch-btn" style="display:none;">
+                💡 Bật Flash
+              </button>
+            </div>
+            <!-- Cooldown countdown bar indicator (SC-02) -->
+            <div class="cooldown-bar-wrap" id="cooldownBarWrap">
+              <div class="cooldown-bar-fill" id="cooldownBarFill"></div>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" capture="environment" class="hidden-input" onchange="handleFileSelected(event)">
+        
+        <div class="scanner-actions">
+          <button class="btn btn-primary" onclick="triggerPhotoCapture()">
+            📸 Chụp ảnh quét mã
+          </button>
+          <button class="btn btn-secondary" id="btnLive" onclick="toggleLiveScan()">
+            🎥 Quét liên tục (Live Camera)
+          </button>
+          <div style="background:var(--blue-light); border:1px dashed var(--blue-primary); border-radius:8px; padding:7px 10px; font-size:0.75rem; color:var(--blue-dark); display:flex; align-items:center; gap:6px;">
+            <span style="font-size:1rem;">💡</span>
+            <span><strong>Mẹo:</strong> Đưa camera lại gần <strong>10–15cm</strong> sao cho tem mã vạch nằm trọn giữa khung hình!</span>
+          </div>
+        </div>
+
+        <div id="loadingText" class="loading-text" style="display:none;">
+          ⏳ Đang phân tích mã vạch trong ảnh...
+        </div>
+      </div>
+
+      <!-- Scan Result -->
+      <div class="scan-result" id="resultBox" style="display: none;">
+        <div class="label">✓ Đã gửi đến máy tính</div>
+        <div class="code" id="resultCode">...</div>
+        <div class="time" id="resultTime"></div>
+      </div>
+
+      <!-- Product Info (shown after scan) -->
+      <div id="productInfoCard" style="display:none;"></div>
+
+      <!-- Manual Barcode Input -->
+      <div class="card">
+        <div class="card-title"><span class="icon">⌨️</span> Nhập mã thủ công</div>
+        <form onsubmit="handleManualSend(event)" class="manual-box">
+          <input type="text" class="text-input" id="manualCodeInput" placeholder="Nhập mã vạch sản phẩm...">
+          <button type="submit" class="btn-icon-send">Gửi</button>
+        </form>
+      </div>
+
+      <!-- Send Product Photo directly to Desktop -->
+      <div class="card" style="border: 1.5px solid var(--blue-light); background: #fdfefe;">
+        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+          <span><span class="icon">🖼️</span> Gửi ảnh sản phẩm sang Desktop</span>
+          <span style="font-size:0.7rem; background:var(--blue-light); color:var(--blue-primary); padding:3px 8px; border-radius:12px; font-weight:700;">MỚI</span>
+        </div>
+        <p style="font-size:0.8rem; color:var(--text-body); margin-bottom:12px; line-height:1.4;">
+          Chụp ảnh bao bì / mặt trước sản phẩm để dùng làm <strong>ảnh đại diện sản phẩm</strong> trên máy tính. <em>(Tách biệt hoàn toàn, không dùng ảnh chụp tem mã vạch)</em>.
+        </p>
+        <input type="file" id="directProductPhotoInput" accept="image/*" capture="environment" style="display:none;" onchange="handleSendDirectProductPhoto(event)">
+        <button type="button" class="btn btn-primary" onclick="document.getElementById('directProductPhotoInput').click()" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px;">
+          📸 Chụp ảnh sản phẩm gửi ngay
+        </button>
+        <div id="directPhotoSending" style="display:none; font-size:0.82rem; color:var(--blue-primary); text-align:center; margin-top:8px; font-weight:600;">
+          ⏳ Đang gửi ảnh sang máy tính...
+        </div>
+        <div id="directPhotoPreview" style="display:none; margin-top:10px; padding:10px; background:var(--bg-page); border-radius:8px; display:flex; align-items:center; gap:12px;">
+          <img id="directPhotoThumb" src="" style="width:52px; height:52px; object-fit:cover; border-radius:6px; border:1px solid var(--border-light);">
+          <div style="font-size:0.78rem; flex:1;">
+            <div style="font-weight:700; color:var(--green-dark);">✓ Đã gửi sang máy tính!</div>
+            <div style="color:var(--text-muted);">Đã tự động gán vào ô ảnh sản phẩm trên Desktop.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ==================== PAGE: PRICE CHECK ==================== -->
+    <div class="page" id="pageCheck">
+
+      <!-- Price Check Banner -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(54, 78, 104, 0.08), rgba(0, 102, 204, 0.08)); border-color: rgba(54, 78, 104, 0.2);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="font-size: 1.8rem;">🏷️</div>
+          <div>
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-dark);">Tra Cứu Giá & Tồn Kho</div>
+            <div style="font-size: 0.78rem; color: var(--text-body);">Quét mã vạch hoặc nhập tên để xem giá bán & tồn kho tức thì mà không gửi vào đơn hàng</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scanner Box for Price Check -->
+      <div class="scanner-box">
+        <div class="scanner-reader-wrap" id="readerCheckWrap" style="display:none;">
+          <div id="readerCheck"></div>
+          <div class="viewfinder-overlay">
+            <div class="viewfinder-box">
+              <div class="viewfinder-corner top-left"></div>
+              <div class="viewfinder-corner top-right"></div>
+              <div class="viewfinder-corner bottom-left"></div>
+              <div class="viewfinder-corner bottom-right"></div>
+              <div class="viewfinder-laser"></div>
+            </div>
+            <div class="viewfinder-tip">
+              <span>🎯</span> Đặt tem mã vạch vào giữa khung để quét tức thì
+            </div>
+            <div class="viewfinder-controls">
+              <button type="button" class="vf-btn vf-zoom-btn" style="display:none;">
+                🔍 Zoom 2x
+              </button>
+              <button type="button" class="vf-btn vf-torch-btn" style="display:none;">
+                💡 Bật Flash
+              </button>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="fileInputCheck" accept="image/*" capture="environment" class="hidden-input" onchange="handleCheckFileSelected(event)">
+
+        <div class="scanner-actions">
+          <button class="btn btn-primary" onclick="triggerCheckPhotoCapture()">
+            📸 Chụp ảnh tra giá
+          </button>
+          <button class="btn btn-secondary" id="btnLiveCheck" onclick="toggleCheckLiveScan()">
+            🎥 Quét liên tục
+          </button>
+          <div style="background:var(--blue-light); border:1px dashed var(--blue-primary); border-radius:8px; padding:7px 10px; font-size:0.75rem; color:var(--blue-dark); display:flex; align-items:center; gap:6px;">
+            <span style="font-size:1rem;">💡</span>
+            <span><strong>Mẹo:</strong> Đưa camera lại gần <strong>10–15cm</strong> sao cho tem mã vạch nằm trọn giữa khung hình!</span>
+          </div>
+        </div>
+
+        <div id="loadingTextCheck" class="loading-text" style="display:none;">
+          ⏳ Đang phân tích mã vạch và tra cứu...
+        </div>
+      </div>
+
+      <!-- Manual Barcode or Product Name Search Box -->
+      <div class="card">
+        <div class="card-title"><span class="icon">🔍</span> Nhập mã vạch hoặc tên hàng</div>
+        <form onsubmit="handleManualPriceCheck(event)" class="manual-box">
+          <input type="text" class="text-input" id="manualCheckInput" placeholder="Nhập barcode hoặc tên sản phẩm...">
+          <button type="submit" class="btn-icon-send">Tra giá</button>
+        </form>
+      </div>
+
+      <!-- Price Check Result Card Container -->
+      <div id="priceResultContainer" style="display:none;"></div>
+
+      <!-- Recent Price Checks Card -->
+      <div class="card" id="recentChecksCard" style="display:none;">
+        <div class="card-title"><span class="icon">🕒</span> Đã kiểm tra gần đây</div>
+        <div id="recentChecksList" style="display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+
+    </div>
+
+    <!-- ==================== PAGE: ADD ==================== -->
+    <div class="page" id="pageAdd">
+
+      <!-- Add Product Form (open state) -->
+      <div id="addFormContainer" style="display: block;">
+        <div class="scan-result" style="background: var(--green-light); margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+          <div class="label" style="color:var(--green-dark); font-weight:700;">🟢 Sẵn sàng thêm sản phẩm mới</div>
+          <span style="font-size:0.75rem; color:var(--text-muted);">Đồng bộ trực tiếp với Desktop</span>
+        </div>
+
+        <!-- Scan barcode for product -->
+        <div class="card">
+          <div class="card-title"><span class="icon">📸</span> Quét mã barcode sản phẩm cần thêm</div>
+          <div class="scanner-reader-wrap" id="readerAddWrap" style="display:none; border-radius:12px; margin-bottom:12px;">
+            <div id="readerAdd" style="background:#000;"></div>
+            <div class="viewfinder-overlay">
+              <div class="viewfinder-box">
+                <div class="viewfinder-corner top-left"></div>
+                <div class="viewfinder-corner top-right"></div>
+                <div class="viewfinder-corner bottom-left"></div>
+                <div class="viewfinder-corner bottom-right"></div>
+                <div class="viewfinder-laser"></div>
+              </div>
+              <div class="viewfinder-tip">
+                <span>🎯</span> Đặt tem mã vạch vào giữa khung để quét tức thì
+              </div>
+              <div class="viewfinder-controls">
+                <button type="button" class="vf-btn vf-zoom-btn" style="display:none;">
+                  🔍 Zoom 2x
+                </button>
+                <button type="button" class="vf-btn vf-torch-btn" style="display:none;">
+                  💡 Bật Flash
+                </button>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="addScanFileInput" accept="image/*" capture="environment" class="hidden-input" onchange="handleAddScanFile(event)">
+          <div style="display:flex; gap:10px;">
+            <button type="button" class="btn btn-primary btn-sm" style="flex:1;" onclick="triggerAddPhotoCapture()">
+              📸 Chụp ảnh quét mã
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAddLive" style="flex:1;" onclick="toggleAddLiveScan()">
+              🎥 Quét trực tiếp
+            </button>
+          </div>
+          <div style="margin-top:10px; background:var(--blue-light); border:1px dashed var(--blue-primary); border-radius:8px; padding:7px 10px; font-size:0.75rem; color:var(--blue-dark); display:flex; align-items:center; gap:6px;">
+            <span style="font-size:1rem;">💡</span>
+            <span><strong>Mẹo quét:</strong> Đưa camera lại gần <strong>10–15cm</strong> sao cho tem mã vạch nằm trọn giữa khung hình!</span>
+          </div>
+          <div id="addScanLoading" class="loading-text" style="display:none; margin-top:8px;">
+            ⏳ Đang phân tích mã vạch (EAN-13, Code 128, QR...)...
+          </div>
+        </div>
+
+        <!-- Product Form -->
+        <div class="card">
+          <div class="card-title"><span class="icon">📦</span> Thông tin sản phẩm</div>
+          <form id="addProductForm" onsubmit="submitAddProduct(event)">
+            <div class="form-group">
+              <label class="form-label">Mã Barcode <span class="required">*</span></label>
+              <input type="text" class="form-control" id="addBarcode" placeholder="Quét hoặc nhập mã barcode" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tên sản phẩm <span class="required">*</span></label>
+              <input type="text" class="form-control" id="addName" placeholder="VD: Mì Hảo Hảo tôm chua cay" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Giá bán (VNĐ) <span class="required">*</span></label>
+                <input type="number" class="form-control" id="addPrice" placeholder="35000" min="0" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tồn kho</label>
+                <input type="number" class="form-control" id="addStock" placeholder="100" min="0">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Danh mục</label>
+                <select class="form-control" id="addCategory">
+                  <option value="">-- Chọn --</option>
+                  <option value="Thực phẩm">Thực phẩm</option>
+                  <option value="Đồ uống">Đồ uống</option>
+                  <option value="Gia dụng">Gia dụng</option>
+                  <option value="Thời trang">Thời trang</option>
+                  <option value="Điện tử">Điện tử</option>
+                  <option value="Phụ kiện">Phụ kiện</option>
+                  <option value="Chăm sóc cá nhân">Chăm sóc cá nhân</option>
+                  <option value="Khác">Khác</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Đơn vị</label>
+                <select class="form-control" id="addUnit">
+                  <option value="cái">Cái</option>
+                  <option value="gói">Gói</option>
+                  <option value="hộp">Hộp</option>
+                  <option value="chai">Chai</option>
+                  <option value="lon">Lon</option>
+                  <option value="kg">Kg</option>
+                  <option value="lít">Lít</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Hình ảnh sản phẩm (Tự động nhận diện Barcode nếu có)</label>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">
+                💡 Chụp toàn cảnh mẫu mã sản phẩm làm ảnh đại diện. Hệ thống sẽ <strong>tự động quét mã vạch trên ảnh</strong> và điền luôn vào ô Barcode!
+              </div>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <div id="phoneImgPreviewBox" style="width:68px; height:68px; border-radius:8px; border:1.5px dashed var(--border-light); background:var(--bg-page); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0;">
+                  <span style="font-size:24px;">📷</span>
+                </div>
+                <div style="flex:1;">
+                  <input type="file" id="phoneProductImgFile" accept="image/*" capture="environment" style="display:none;" onchange="handlePhoneProductPhoto(event)">
+                  <div style="display:flex; gap:6px; margin-bottom:6px;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('phoneProductImgFile').click()" style="flex:1; padding:8px 10px; font-size:0.8rem;">
+                      📸 Chụp ảnh sản phẩm
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btnSendAddPhotoToDesktop" onclick="sendAddPhotoToDesktop()" style="display:none; padding:8px 10px; font-size:0.8rem;" title="Gửi ảnh này sang máy tính">
+                      📤 Gửi Desktop
+                    </button>
+                  </div>
+                  <input type="text" class="form-control" id="addImageUrl" placeholder="Hoặc dán link ảnh..." style="font-size:0.8rem; padding:6px 10px;">
+                </div>
+              </div>
+              <div id="autoBarcodeStatus" style="display:none; font-size:0.76rem; margin-top:6px; padding:6px 10px; border-radius:8px; background:var(--green-light); border:1px solid rgba(0,184,148,0.3);"></div>
+            </div>
+            <button type="submit" class="btn btn-success" id="btnSubmitAdd">
+              ✅ Thêm sản phẩm
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== PAGE: HISTORY ==================== -->
+    <div class="page" id="pageHistory">
+      <div class="card">
+        <div class="card-title"><span class="icon">📋</span> Lịch sử quét</div>
+        <div class="history-list" id="historyList">
+          <div class="empty-state">Chưa có mã quét nào</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Bottom Tab Bar -->
+  <nav class="bottom-tabs">
+    <button class="tab-item active" onclick="switchPage('scan')" id="tabScan">
+      <span class="tab-icon">📷</span>
+      <span class="tab-label">Bán hàng</span>
+    </button>
+    <button class="tab-item" onclick="switchPage('check')" id="tabCheck">
+      <span class="tab-icon">🏷️</span>
+      <span class="tab-label">Kiểm tra giá</span>
+    </button>
+    <button class="tab-item" onclick="switchPage('add')" id="tabAdd">
+      <span class="tab-icon">📦</span>
+      <span class="tab-label">Thêm SP</span>
+    </button>
+    <button class="tab-item" onclick="switchPage('history')" id="tabHistory">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Lịch sử</span>
+    </button>
+  </nav>
+
+  <!-- Floating Toast Badge for live scan (SC-02) -->
+  <div class="batch-toast-badge" id="batchToastBadge">+1 Đã thêm vào đợt quét</div>
+
+  <!-- Floating Batch Bar (SC-02) -->
+  <div class="batch-floating-bar" id="batchFloatingBar">
+    <div class="batch-bar-summary">
+      <div class="batch-bar-count" id="batchBarCount">📦 Đã quét: 0 món</div>
+      <div class="batch-bar-total" id="batchBarTotal">Tổng: 0 ₫</div>
+    </div>
+    <div class="batch-bar-actions">
+      <button type="button" class="batch-btn-view" onclick="openBatchDrawer()">
+        📋 Xem (${batchItems.length})
+      </button>
+      <button type="button" class="batch-btn-send" onclick="sendBatchToPos()">
+        🚀 Gửi POS
+      </button>
+    </div>
+  </div>
+
+  <!-- Batch Drawer (Bottom Sheet) -->
+  <div class="batch-drawer-overlay" id="batchDrawerOverlay" onclick="if(event.target===this) closeBatchDrawer()">
+    <div class="batch-drawer">
+      <div class="batch-drawer-header">
+        <div class="batch-drawer-title">
+          <span>📦 Đợt Gom Hàng Hiện Tại</span>
+          <span class="badge" id="drawerItemCountBadge" style="font-size:0.75rem; background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:12px;">0 sản phẩm</span>
+        </div>
+        <button class="btn-ghost" style="border:none; background:transparent; font-size:1.2rem; cursor:pointer;" onclick="closeBatchDrawer()">✕</button>
+      </div>
+      <div class="batch-drawer-body" id="batchDrawerList">
+        <div class="empty-state">Chưa có sản phẩm nào trong đợt quét này</div>
+      </div>
+      <div class="batch-drawer-footer">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <button type="button" class="btn btn-secondary" style="font-size:0.8rem; padding:8px 12px;" onclick="clearBatchItems()">
+            🗑️ Xóa hết
+          </button>
+          <div style="text-align:right;">
+            <div style="font-size:0.72rem; color:var(--text-muted);">Ước tính tổng tiền</div>
+            <div style="font-size:1.1rem; font-weight:800; color:var(--green-primary);" id="drawerTotalMoney">0 ₫</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" style="width:100%; padding:12px; font-weight:700; font-size:0.9rem;" onclick="sendBatchToPos()">
+          🚀 Gửi Tất Cả Vào Giỏ Hàng POS
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/scanner-client.js"></script>
+</body>
+</html>

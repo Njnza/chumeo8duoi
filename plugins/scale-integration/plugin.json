@@ -1,0 +1,10 @@
+{
+  "id": "scale-integration",
+  "name": "Cân Điện Tử Bán Lẻ (Electronic Scale)",
+  "version": "1.0.0",
+  "author": "ShopPro Hardware Team",
+  "description": "Tự động phân tích mã vạch tem cân điện tử (EAN-13 tiền tố 20-29) và quy đổi trọng lượng (kg) cho mặt hàng tươi sống.",
+  "icon": "⚖️",
+  "enabled": true,
+  "hooks": ["onInit", "onBarcodeScanned"]
+}

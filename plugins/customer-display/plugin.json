@@ -1,0 +1,10 @@
+{
+  "id": "customer-display",
+  "name": "Màn Hình Phụ Cho Khách (Customer Display)",
+  "version": "1.0.0",
+  "author": "ShopPro Community",
+  "description": "Đồng bộ giỏ hàng và tổng tiền phải trả sang màn hình phụ quay về phía khách hàng khi nhân viên bán hàng tại POS.",
+  "icon": "🖥️",
+  "enabled": true,
+  "hooks": ["onInit", "onCartUpdated", "onOrderCreated"]
+}

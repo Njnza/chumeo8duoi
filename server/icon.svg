@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="50%" stop-color="#3b82f6" />
+      <stop offset="100%" stop-color="#8b5cf6" />
+    </linearGradient>
+    <linearGradient id="laserGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.2" />
+      <stop offset="50%" stop-color="#ef4444" stop-opacity="1" />
+      <stop offset="100%" stop-color="#ef4444" stop-opacity="0.2" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background rounded squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect width="504" height="504" x="4" y="4" rx="108" fill="none" stroke="#334155" stroke-width="4" opacity="0.6" />
+
+  <!-- Outer Scanner Frame Corners -->
+  <!-- Top Left -->
+  <path d="M 120 180 L 120 130 A 10 10 0 0 1 130 120 L 180 120" fill="none" stroke="url(#accentGrad)" stroke-width="14" stroke-linecap="round" />
+  <!-- Top Right -->
+  <path d="M 332 120 L 382 120 A 10 10 0 0 1 392 130 L 392 180" fill="none" stroke="url(#accentGrad)" stroke-width="14" stroke-linecap="round" />
+  <!-- Bottom Left -->
+  <path d="M 120 332 L 120 382 A 10 10 0 0 0 130 392 L 180 392" fill="none" stroke="url(#accentGrad)" stroke-width="14" stroke-linecap="round" />
+  <!-- Bottom Right -->
+  <path d="M 332 392 L 382 392 A 10 10 0 0 0 392 382 L 392 332" fill="none" stroke="url(#accentGrad)" stroke-width="14" stroke-linecap="round" />
+
+  <!-- Barcode Bars -->
+  <g fill="#f8fafc" opacity="0.95">
+    <rect x="160" y="160" width="12" height="192" rx="4" />
+    <rect x="184" y="160" width="8" height="192" rx="3" />
+    <rect x="204" y="160" width="20" height="192" rx="5" />
+    <rect x="236" y="160" width="10" height="192" rx="4" />
+    <rect x="256" y="160" width="16" height="192" rx="4" />
+    <rect x="282" y="160" width="8" height="192" rx="3" />
+    <rect x="300" y="160" width="22" height="192" rx="5" />
+    <rect x="334" y="160" width="12" height="192" rx="4" />
+  </g>
+
+  <!-- Laser Beam across middle -->
+  <rect x="110" y="252" width="292" height="8" rx="4" fill="url(#laserGrad)" filter="url(#glow)" />
+  <line x1="100" y1="256" x2="412" y2="256" stroke="#f87171" stroke-width="3" stroke-linecap="round" filter="url(#glow)" />
+</svg>
