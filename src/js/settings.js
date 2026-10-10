@@ -103,16 +103,48 @@
             <!-- Bank & VietQR -->
             <div class="settings-section">
               <div class="flex justify-between items-center mb-sm">
-                <h3>🏦 Tài Khoản Ngân Hàng (VietQR)</h3>
+                <h3>🏦 Tài Khoản Ngân Hàng & Mã QR Thanh Toán</h3>
                 <span class="badge badge-info" style="font-size:11px;">NAPAS 247</span>
               </div>
               <p class="text-secondary mb-md" style="font-size:12px;">
-                Cấu hình tài khoản ngân hàng nhận tiền. Khi chọn thanh toán Chuyển khoản tại POS, màn hình sẽ tự động hiển thị mã VietQR kèm số tiền chính xác để khách quét app ngân hàng.
+                Tải lên ảnh mã QR chuyển khoản hoặc cài đặt số tài khoản. Khi thu ngân bấm "Mã VietQR" tại POS, khách chỉ cần quét mã này là thanh toán được ngay!
               </p>
+
+              <!-- QR Image Upload Box -->
+              <div class="form-group mb-md" style="background:var(--bg-secondary); padding:14px; border-radius:10px; border:1px solid var(--border);">
+                <label class="form-label" style="margin-bottom:8px; font-weight:700;">📸 ẢNH MÃ QR NGÂN HÀNG (QUÉT CHUYỂN KHOẢN)</label>
+                <div style="display:flex; gap:16px; align-items:center;">
+                  <div id="bankQrPreviewContainer" style="width:110px; height:140px; border:2px dashed var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; background:var(--bg-card); position:relative; flex-shrink:0;">
+                    <img id="bankQrPreview" src="images/bank_qr.png" alt="Mã QR" style="width:100%; height:100%; object-fit:contain; display:block;" onerror="this.style.display='none'; const ph = document.getElementById('bankQrPlaceholder'); if(ph) ph.style.display='flex';">
+                    <div id="bankQrPlaceholder" style="display:none; flex-direction:column; align-items:center; color:var(--text-secondary); font-size:11px; text-align:center; padding:6px;">
+                      <span style="font-size:24px;">📱</span>
+                      <span>Chưa có ảnh QR</span>
+                    </div>
+                  </div>
+                  <div style="flex:1;">
+                    <input type="file" id="sBankQrFileInput" accept="image/*" style="display:none;" onchange="pageModules.settings && pageModules.settings.onBankQrFileSelected(event)">
+                    <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;">
+                      <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('sBankQrFileInput').click()">
+                        📁 Chọn ảnh mã QR từ máy tính
+                      </button>
+                      <button type="button" class="btn btn-outline btn-sm text-danger" id="btnRemoveBankQr" onclick="pageModules.settings && pageModules.settings.removeBankQrImage()">
+                        🗑️ Xóa ảnh QR
+                      </button>
+                    </div>
+                    <div class="text-secondary" style="font-size:11.5px; line-height:1.4;">
+                      Khuyên dùng: Chọn ảnh chụp màn hình mã QR từ app ngân hàng (TPBank, Vietcombank, MB...). Hệ thống sẽ hiển thị mã này tại màn hình thanh toán POS.
+                    </div>
+                  </div>
+                </div>
+                <input type="hidden" id="sBankQrImage" value="images/bank_qr.png">
+              </div>
+
+              <!-- Bank details -->
               <div class="form-group mb-md">
                 <label class="form-label">NGÂN HÀNG THỤ HƯỞNG</label>
                 <select class="form-control" id="sBankBin">
                   <option value="">-- Chưa kích hoạt VietQR --</option>
+                  <option value="970423">TPBank (Tiên Phong)</option>
                   <option value="970436">Vietcombank (VCB)</option>
                   <option value="970422">MBBank (Quân Đội)</option>
                   <option value="970407">Techcombank (TCB)</option>
@@ -120,7 +152,6 @@
                   <option value="970418">BIDV (Đầu Tư & Phát Triển)</option>
                   <option value="970415">VietinBank (Công Thương)</option>
                   <option value="970454">VPBank (Việt Nam Thịnh Vượng)</option>
-                  <option value="970423">TPBank (Tiên Phong)</option>
                   <option value="970405">Agribank (Nông Nghiệp)</option>
                   <option value="970403">Sacombank</option>
                   <option value="970441">VIB (Quốc Tế)</option>
@@ -138,11 +169,11 @@
               <div class="form-row mb-md">
                 <div class="form-group">
                   <label class="form-label">SỐ TÀI KHOẢN (STK)</label>
-                  <input type="text" class="form-control" id="sBankAccountNo" placeholder="VD: 0123456789">
+                  <input type="text" class="form-control" id="sBankAccountNo" placeholder="VD: 03793104801">
                 </div>
                 <div class="form-group">
                   <label class="form-label">TÊN CHỦ TÀI KHOẢN (IN HOA)</label>
-                  <input type="text" class="form-control" id="sBankAccountName" placeholder="VD: NGUYEN VAN A" style="text-transform:uppercase;">
+                  <input type="text" class="form-control" id="sBankAccountName" placeholder="VD: TA TRUNG HIEU" style="text-transform:uppercase;">
                 </div>
               </div>
               <div class="form-group">
@@ -549,14 +580,78 @@
     setValue('sTaxEnabled', settings.tax_enabled);
     setValue('sTaxRate', settings.tax_rate);
     setValue('sOrderPrefix', settings.order_prefix);
-    setValue('sBankBin', settings.bank_bin);
-    setValue('sBankAccountNo', settings.bank_account_no);
-    setValue('sBankAccountName', settings.bank_account_name);
+    setValue('sBankBin', settings.bank_bin || '970423');
+    setValue('sBankAccountNo', settings.bank_account_no || '03793104801');
+    setValue('sBankAccountName', settings.bank_account_name || 'TA TRUNG HIEU');
     setValue('sBankTemplate', settings.bank_template || 'HD {code}');
     setValue('sReceiptWidth', settings.receipt_width);
     setValue('sReceiptFooter', settings.receipt_footer);
     setValue('sAutoPrint', settings.auto_print);
     setValue('sScannerPort', settings.scanner_port);
+
+    const qrImg = settings.bank_qr_image || 'images/bank_qr.png';
+    setValue('sBankQrImage', qrImg);
+    updateBankQrPreview(qrImg);
+  }
+
+  function updateBankQrPreview(src) {
+    const preview = document.getElementById('bankQrPreview');
+    const placeholder = document.getElementById('bankQrPlaceholder');
+    const hidden = document.getElementById('sBankQrImage');
+    if (src) {
+      if (preview) { preview.src = src; preview.style.display = 'block'; }
+      if (placeholder) placeholder.style.display = 'none';
+      if (hidden) hidden.value = src;
+    } else {
+      if (preview) { preview.src = ''; preview.style.display = 'none'; }
+      if (placeholder) placeholder.style.display = 'flex';
+      if (hidden) hidden.value = '';
+    }
+  }
+
+  function removeBankQrImage() {
+    updateBankQrPreview('');
+    showToast('info', 'Đã xóa ảnh QR', 'Hãy nhấn Lưu Cài Đặt để cập nhật');
+  }
+
+  function onBankQrFileSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      showToast('warning', 'Không hợp lệ', 'Vui lòng chọn tệp hình ảnh');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const maxDim = 640;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        updateBankQrPreview(compressedDataUrl);
+        showToast('success', 'Đã nạp ảnh mã QR', 'Ảnh đã sẵn sàng. Nhấn "Lưu Cài Đặt" để hoàn tất!');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
   }
 
   function setValue(id, value) {
@@ -585,6 +680,7 @@
         bank_account_no: getValue('sBankAccountNo'),
         bank_account_name: getValue('sBankAccountName').toUpperCase(),
         bank_template: getValue('sBankTemplate') || 'HD {code}',
+        bank_qr_image: getValue('sBankQrImage') || 'images/bank_qr.png',
         receipt_width: getValue('sReceiptWidth'),
         receipt_footer: getValue('sReceiptFooter'),
         auto_print: getValue('sAutoPrint'),
@@ -987,6 +1083,7 @@
     render, init, saveAll, doBackup, doRestore, addTierRow, removeTierRow,
     loadUsersList, openAddUserModal, openEditUserModal, saveUserForm, deleteUserAccount,
     renderThemePalettes, selectThemePreset, onCustomColorInput, onHexInputChange, resetDefaultTheme,
-    loadRecentLogs, openLogFolder, clearTodayLog, renderPluginsList, onTogglePlugin, openPluginsFolder
+    loadRecentLogs, openLogFolder, clearTodayLog, renderPluginsList, onTogglePlugin, openPluginsFolder,
+    onBankQrFileSelected, removeBankQrImage, updateBankQrPreview
   });
 })();

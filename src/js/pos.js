@@ -1264,23 +1264,24 @@
 
     setPaymentMethod('transfer', false);
 
-    const bankBin = await api.getSetting('bank_bin');
-    const bankAccountNo = await api.getSetting('bank_account_no');
-    const bankAccountName = await api.getSetting('bank_account_name');
+    const bankBin = (await api.getSetting('bank_bin')) || '970423';
+    const bankAccountNo = (await api.getSetting('bank_account_no')) || '03793104801';
+    const bankAccountName = (await api.getSetting('bank_account_name')) || 'TA TRUNG HIEU';
     const bankTemplate = (await api.getSetting('bank_template')) || 'HD {code}';
+    const bankQrImage = (await api.getSetting('bank_qr_image')) || 'images/bank_qr.png';
 
-    if (!bankBin || !bankAccountNo) {
+    if (!bankQrImage && (!bankBin || !bankAccountNo)) {
       showModal(`
         <div class="modal" style="max-width:440px; text-align:center;">
           <div class="modal-header">
-            <h3>🏦 Chưa Cấu Hình VietQR</h3>
+            <h3>🏦 Chưa Cấu Hình QR Ngân Hàng</h3>
             <button class="btn btn-ghost btn-icon sm" onclick="closeModal()">✕</button>
           </div>
           <div class="modal-body" style="padding:24px 20px;">
             <div style="font-size:48px; margin-bottom:12px;">💳</div>
-            <h4 style="margin-bottom:8px;">Bạn chưa thiết lập tài khoản ngân hàng nhận tiền</h4>
+            <h4 style="margin-bottom:8px;">Bạn chưa thiết lập tài khoản hoặc ảnh mã QR nhận tiền</h4>
             <p class="text-secondary" style="font-size:13px; line-height:1.5; margin-bottom:20px;">
-              Vui lòng vào <strong>Cài Đặt → Tài Khoản Ngân Hàng (VietQR)</strong> để chọn ngân hàng và nhập Số tài khoản nhận tiền.
+              Vui lòng vào <strong>Cài Đặt → Tài Khoản Ngân Hàng & Mã QR</strong> để chọn ảnh QR từ máy tính.
             </p>
             <button class="btn btn-primary" onclick="closeModal(); navigateTo('settings');">
               ⚙️ Đến Trang Cài Đặt Ngay
@@ -1293,13 +1294,16 @@
 
     const invoiceCode = inv.name.replace(/\D/g, '') || '1';
     const transferSyntax = bankTemplate.replace('{code}', `${invoiceCode}-${Date.now().toString().slice(-4)}`);
-    const bankName = BANK_NAMES[bankBin] || 'Ngân Hàng';
+    const bankName = BANK_NAMES[bankBin] || 'TPBank (Tiên Phong)';
 
     const vietqrUrl = `https://img.vietqr.io/image/${bankBin}-${bankAccountNo}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(transferSyntax)}&accountName=${encodeURIComponent(bankAccountName)}`;
+    const displayQrUrl = bankQrImage || vietqrUrl;
 
     let localQrDataUrl = '';
     try {
-      localQrDataUrl = await api.generateQRCode(`https://api.vietqr.io/image/${bankBin}-${bankAccountNo}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(transferSyntax)}&accountName=${encodeURIComponent(bankAccountName)}`);
+      if (!bankQrImage) {
+        localQrDataUrl = await api.generateQRCode(`https://api.vietqr.io/image/${bankBin}-${bankAccountNo}-compact2.png?amount=${total}&addInfo=${encodeURIComponent(transferSyntax)}&accountName=${encodeURIComponent(bankAccountName)}`);
+      }
     } catch (_) {}
 
     showModal(`
@@ -1307,22 +1311,25 @@
         <div class="modal-header">
           <div style="display:flex; align-items:center; gap:8px;">
             <span style="font-size:20px;">⚡</span>
-            <h3 style="margin:0;">Mã VietQR Thanh Toán</h3>
+            <h3 style="margin:0;">Mã QR Chuyển Khoản Thanh Toán</h3>
           </div>
           <button class="btn btn-ghost btn-icon sm" onclick="closeModal()">✕</button>
         </div>
         <div class="modal-body" style="padding:16px 20px;">
           <!-- QR Card -->
           <div style="background:#ffffff; border-radius:12px; padding:16px; border:2px solid var(--accent); box-shadow:0 8px 24px rgba(0,0,0,0.15); margin-bottom:16px; display:flex; flex-direction:column; align-items:center;">
-            <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">
+            <div style="font-size:11px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">
               Quét mã bằng ứng dụng ngân hàng / Ví điện tử
             </div>
-            <div style="width:240px; height:240px; background:#f8fafc; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid #e2e8f0; margin-bottom:10px;">
-              <img id="vietqrImg" src="${vietqrUrl}" alt="Mã VietQR" style="width:100%; height:100%; object-fit:contain;" 
+            <div style="max-width:280px; max-height:280px; width:100%; background:#f8fafc; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; border:1px solid #e2e8f0; margin-bottom:10px;">
+              <img id="vietqrImg" src="${displayQrUrl}" alt="Mã QR Chuyển Khoản" style="max-width:100%; max-height:270px; object-fit:contain;" 
                    onerror="if(this.src !== '${localQrDataUrl}' && '${localQrDataUrl}') { this.src='${localQrDataUrl}'; }">
             </div>
-            <div style="font-size:22px; font-weight:800; color:#0284c7; line-height:1.2;">
+            <div style="font-size:24px; font-weight:800; color:#0284c7; line-height:1.2;">
               ${formatNumber(total)} ₫
+            </div>
+            <div style="font-size:11.5px; color:#64748b; margin-top:2px;">
+              Chuyển khoản chính xác số tiền đơn hàng
             </div>
           </div>
 
