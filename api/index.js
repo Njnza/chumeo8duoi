@@ -1391,11 +1391,15 @@ app.post('/api/users/verify-pin', async (req, res) => {
 });
 
 // Serve frontend static files in local dev mode
-app.use(express.static(path.join(__dirname, '..', 'src')));
-app.use((req, res, next) => {
-  if (req.path.startsWith('/api')) return next();
-  res.sendFile(path.join(__dirname, '..', 'src', 'index.html'));
-});
+const fs = require('fs');
+const srcPath = path.join(__dirname, '..', 'src');
+if (fs.existsSync(srcPath)) {
+  app.use(express.static(srcPath));
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(srcPath, 'index.html'));
+  });
+}
 
 // For local testing
 const PORT = process.env.PORT || 3000;
