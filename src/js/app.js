@@ -245,11 +245,23 @@ async function initCurrentUser() {
   }
 }
 
+let currentLoginRole = 'admin';
+let lockoutCountdownTimer = null;
+
 function showLoginScreen() {
   const overlay = document.getElementById('loginScreenOverlay');
   if (overlay) overlay.style.display = 'flex';
-  deselectQuickUser();
-  loadLoginUsers();
+
+  // Check lockout status from server
+  if (api && typeof api.getLockoutStatus === 'function') {
+    api.getLockoutStatus().then(status => {
+      if (status && status.locked) {
+        startLockoutCountdown(status.retryAfter || 60);
+      }
+    }).catch(() => {});
+  }
+
+  switchLoginRole(currentLoginRole || 'admin');
 }
 
 function hideLoginScreen() {
@@ -257,131 +269,114 @@ function hideLoginScreen() {
   if (overlay) overlay.style.display = 'none';
 }
 
-function switchLoginTab(tab) {
-  const tabQuick = document.getElementById('loginTabQuick');
-  const tabForm = document.getElementById('loginTabForm');
-  const btnQuick = document.getElementById('tabBtnQuick');
-  const btnForm = document.getElementById('tabBtnForm');
+function switchLoginRole(role) {
+  currentLoginRole = role;
+  const tabAdmin = document.getElementById('loginTabAdmin');
+  const tabStaff = document.getElementById('loginTabStaff');
+  const btnAdmin = document.getElementById('tabBtnAdmin');
+  const btnStaff = document.getElementById('tabBtnStaff');
+  hideLoginAlert();
 
-  if (tab === 'quick') {
-    if (tabQuick) tabQuick.style.display = 'block';
-    if (tabForm) tabForm.style.display = 'none';
-    if (btnQuick) btnQuick.classList.add('active');
-    if (btnForm) btnForm.classList.remove('active');
-    loadLoginUsers();
-  } else {
-    if (tabQuick) tabQuick.style.display = 'none';
-    if (tabForm) tabForm.style.display = 'block';
-    if (btnQuick) btnQuick.classList.remove('active');
-    if (btnForm) btnForm.classList.add('active');
+  if (role === 'admin') {
+    if (tabAdmin) tabAdmin.style.display = 'block';
+    if (tabStaff) tabStaff.style.display = 'none';
+    if (btnAdmin) btnAdmin.classList.add('active');
+    if (btnStaff) btnStaff.classList.remove('active');
     setTimeout(() => {
-      const uInput = document.getElementById('loginUsername');
-      if (uInput) uInput.focus();
+      const pinIn = document.getElementById('adminPinInput');
+      if (pinIn) pinIn.focus();
+    }, 100);
+  } else {
+    if (tabAdmin) tabAdmin.style.display = 'none';
+    if (tabStaff) tabStaff.style.display = 'block';
+    if (btnAdmin) btnAdmin.classList.remove('active');
+    if (btnStaff) btnStaff.classList.add('active');
+    setTimeout(() => {
+      const userIn = document.getElementById('staffUsername');
+      if (userIn) userIn.focus();
     }, 100);
   }
 }
 
-async function loadLoginUsers() {
-  const listEl = document.getElementById('quickUsersList');
-  if (!listEl) return;
-  try {
-    const users = await api.getUsers();
-    if (!Array.isArray(users) || users.length === 0) {
-      listEl.innerHTML = '<div class="text-muted" style="text-align:center; padding:10px;">Chưa có tài khoản nào</div>';
-      return;
+function startLockoutCountdown(seconds) {
+  let remaining = Math.max(1, Math.round(Number(seconds) || 60));
+  const banner = document.getElementById('loginLockoutBanner');
+  const timerBadge = document.getElementById('lockoutTimerBadge');
+  const alertBox = document.getElementById('loginAlertBox');
+  const card = document.querySelector('.login-card');
+
+  if (lockoutCountdownTimer) clearInterval(lockoutCountdownTimer);
+  if (banner) banner.style.display = 'flex';
+  if (alertBox) alertBox.style.display = 'none';
+  if (card) card.classList.add('is-locked');
+  if (timerBadge) timerBadge.textContent = `${remaining}s`;
+
+  lockoutCountdownTimer = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(lockoutCountdownTimer);
+      lockoutCountdownTimer = null;
+      if (banner) banner.style.display = 'none';
+      if (card) card.classList.remove('is-locked');
+      showToast('info', 'Mở khóa bảo vệ', 'Bạn có thể thử đăng nhập lại ngay bây giờ.');
+    } else {
+      if (timerBadge) timerBadge.textContent = `${remaining}s`;
     }
-    const activeUsers = users.filter(u => u.status !== 'inactive');
-    listEl.innerHTML = activeUsers.map(u => `
-      <div class="quick-user-card" onclick="selectQuickUser(${u.id}, '${escapeHtml(u.name)}', '${u.role}', '${escapeHtml(u.username)}')">
-        <div class="quick-user-left">
-          <div class="quick-user-avatar">${u.role === 'owner' ? '👑' : '🧑‍💼'}</div>
-          <div>
-            <div class="quick-user-name">${escapeHtml(u.name)}</div>
-            <div class="quick-user-meta">@${escapeHtml(u.username)} · ${u.role === 'owner' ? 'Chủ Cửa Hàng' : 'Thu Ngân'}</div>
-          </div>
-        </div>
-        <div>
-          <span class="badge ${u.role === 'owner' ? 'badge-success' : 'badge-default'}">
-            ${u.role === 'owner' ? '👑 Chủ Shop' : '🧑‍💼 Thu Ngân'}
-          </span>
-        </div>
-      </div>
-    `).join('');
-  } catch (err) {
-    listEl.innerHTML = `<div class="text-danger" style="text-align:center; padding:10px;">Lỗi tải người dùng: ${escapeHtml(err.message)}</div>`;
+  }, 1000);
+}
+
+function showLoginAlert(msg) {
+  const alertBox = document.getElementById('loginAlertBox');
+  const alertText = document.getElementById('loginAlertText');
+  if (alertBox && alertText) {
+    alertText.textContent = msg;
+    alertBox.style.display = 'block';
   }
 }
 
-function selectQuickUser(id, name, role, username) {
-  selectedQuickUser = { id, name, role, username };
-  const promptEl = document.getElementById('quickUserPrompt');
-  const listEl = document.getElementById('quickUsersList');
-  const pinContainer = document.getElementById('quickPinContainer');
-  const selAvatar = document.getElementById('selUserAvatar');
-  const selName = document.getElementById('selUserName');
-  const selRole = document.getElementById('selUserRole');
-  const pinInput = document.getElementById('quickPinInput');
-
-  if (promptEl) promptEl.style.display = 'none';
-  if (listEl) listEl.style.display = 'none';
-  if (pinContainer) pinContainer.style.display = 'block';
-
-  if (selAvatar) selAvatar.textContent = role === 'owner' ? '👑' : '🧑‍💼';
-  if (selName) selName.textContent = name;
-  if (selRole) selRole.textContent = role === 'owner' ? '👑 Chủ Cửa Hàng' : '🧑‍💼 Thu Ngân';
-
-  if (pinInput) {
-    pinInput.value = '';
-    setTimeout(() => pinInput.focus(), 100);
-  }
+function hideLoginAlert() {
+  const alertBox = document.getElementById('loginAlertBox');
+  if (alertBox) alertBox.style.display = 'none';
 }
 
-function deselectQuickUser() {
-  selectedQuickUser = null;
-  const promptEl = document.getElementById('quickUserPrompt');
-  const listEl = document.getElementById('quickUsersList');
-  const pinContainer = document.getElementById('quickPinContainer');
-  const pinInput = document.getElementById('quickPinInput');
-
-  if (promptEl) promptEl.style.display = 'block';
-  if (listEl) listEl.style.display = 'flex';
-  if (pinContainer) pinContainer.style.display = 'none';
-  if (pinInput) pinInput.value = '';
-}
-
-function appendQuickPin(digit) {
-  const pinInput = document.getElementById('quickPinInput');
+function appendAdminPin(digit) {
+  const pinInput = document.getElementById('adminPinInput');
   if (!pinInput) return;
   if (pinInput.value.length >= 6) return;
   pinInput.value += digit;
 }
 
-function clearQuickPin() {
-  const pinInput = document.getElementById('quickPinInput');
+function clearAdminPin() {
+  const pinInput = document.getElementById('adminPinInput');
   if (pinInput) {
     pinInput.value = '';
     pinInput.focus();
   }
 }
 
-async function submitQuickPinLogin() {
-  if (!selectedQuickUser) {
-    showToast('warning', 'Vui lòng chọn tài khoản');
+async function submitAdminPinLogin() {
+  const card = document.querySelector('.login-card');
+  if (card && card.classList.contains('is-locked')) {
+    showToast('warning', 'Hệ thống đang tạm khóa', 'Vui lòng chờ hết thời gian đếm ngược để thử lại');
     return;
   }
-  const pinInput = document.getElementById('quickPinInput');
+
+  const pinInput = document.getElementById('adminPinInput');
   const pin = pinInput?.value?.trim();
   if (!pin) {
-    showToast('warning', 'Chưa nhập mã PIN', 'Vui lòng nhập mã PIN để đăng nhập');
+    showToast('warning', 'Chưa nhập mã PIN', 'Vui lòng nhập mã PIN quản trị');
     if (pinInput) pinInput.focus();
     return;
   }
 
-  try {
-    const authUser = await api.authenticateUser(selectedQuickUser.id, pin);
-    if (!authUser) throw new Error('Xác thực không thành công');
+  const btn = document.getElementById('btnAdminSubmit');
+  if (btn) btn.disabled = true;
 
-    const remember = document.getElementById('quickRememberMe')?.checked;
+  try {
+    const authUser = await api.authenticateUser({ mode: 'admin', pin });
+    if (!authUser) throw new Error('Mã PIN không đúng');
+
+    const remember = document.getElementById('adminRememberMe')?.checked;
     if (remember) {
       localStorage.setItem('shoppro_user_remembered', JSON.stringify(authUser));
     } else {
@@ -389,38 +384,60 @@ async function submitQuickPinLogin() {
     }
     sessionStorage.setItem('shoppro_user', JSON.stringify(authUser));
 
+    hideLoginAlert();
     onLoginSuccess(authUser);
   } catch (err) {
-    showToast('error', 'Đăng nhập thất bại', err.message || 'Mã PIN không chính xác');
-    if (pinInput) {
-      pinInput.value = '';
-      pinInput.focus();
+    if (err.locked || err.status === 429) {
+      startLockoutCountdown(err.retryAfter || 60);
+      showToast('error', 'Khóa tạm thời', err.message || 'Nhập sai quá 5 lần!');
+    } else {
+      const remaining = err.remainingAttempts !== undefined ? err.remainingAttempts : (err.data?.remainingAttempts);
+      const msg = remaining !== undefined
+        ? `Mã PIN không đúng! Bạn còn ${remaining} lần thử.`
+        : (err.message || 'Mã PIN quản trị không chính xác');
+      showLoginAlert(msg);
+      showToast('error', 'Đăng nhập thất bại', msg);
+      if (pinInput) {
+        pinInput.value = '';
+        pinInput.focus();
+      }
     }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
-async function submitStandardLogin() {
-  const uInput = document.getElementById('loginUsername');
-  const pInput = document.getElementById('loginPin');
+async function submitStaffLogin() {
+  const card = document.querySelector('.login-card');
+  if (card && card.classList.contains('is-locked')) {
+    showToast('warning', 'Hệ thống đang tạm khóa', 'Vui lòng chờ hết thời gian đếm ngược để thử lại');
+    return;
+  }
+
+  const uInput = document.getElementById('staffUsername');
+  const pInput = document.getElementById('staffPassword');
   const username = uInput?.value?.trim();
-  const pin = pInput?.value?.trim();
+  const password = pInput?.value?.trim();
 
   if (!username) {
-    showToast('warning', 'Thiếu thông tin', 'Vui lòng nhập tên đăng nhập');
+    showToast('warning', 'Thiếu thông tin', 'Vui lòng nhập tên đăng nhập nhân viên');
     if (uInput) uInput.focus();
     return;
   }
-  if (!pin) {
-    showToast('warning', 'Thiếu thông tin', 'Vui lòng nhập mã PIN hoặc mật khẩu');
+  if (!password) {
+    showToast('warning', 'Thiếu thông tin', 'Vui lòng nhập mật khẩu');
     if (pInput) pInput.focus();
     return;
   }
 
-  try {
-    const authUser = await api.authenticateUser(username, pin);
-    if (!authUser) throw new Error('Tài khoản hoặc mã PIN không đúng');
+  const btn = document.getElementById('btnStaffSubmit');
+  if (btn) btn.disabled = true;
 
-    const remember = document.getElementById('formRememberMe')?.checked;
+  try {
+    const authUser = await api.authenticateUser({ mode: 'staff', username, password });
+    if (!authUser) throw new Error('Tài khoản hoặc mật khẩu không chính xác');
+
+    const remember = document.getElementById('staffRememberMe')?.checked;
     if (remember) {
       localStorage.setItem('shoppro_user_remembered', JSON.stringify(authUser));
     } else {
@@ -428,13 +445,26 @@ async function submitStandardLogin() {
     }
     sessionStorage.setItem('shoppro_user', JSON.stringify(authUser));
 
+    hideLoginAlert();
     onLoginSuccess(authUser);
   } catch (err) {
-    showToast('error', 'Đăng nhập thất bại', err.message || 'Tên đăng nhập hoặc mã PIN không đúng');
-    if (pInput) {
-      pInput.value = '';
-      pInput.focus();
+    if (err.locked || err.status === 429) {
+      startLockoutCountdown(err.retryAfter || 60);
+      showToast('error', 'Khóa tạm thời', err.message || 'Nhập sai quá 5 lần!');
+    } else {
+      const remaining = err.remainingAttempts !== undefined ? err.remainingAttempts : (err.data?.remainingAttempts);
+      const msg = remaining !== undefined
+        ? `Tên đăng nhập hoặc mật khẩu sai! Còn ${remaining} lần thử.`
+        : (err.message || 'Đăng nhập không thành công');
+      showLoginAlert(msg);
+      showToast('error', 'Đăng nhập thất bại', msg);
+      if (pInput) {
+        pInput.value = '';
+        pInput.focus();
+      }
     }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -463,13 +493,16 @@ function logoutUser() {
   showToast('info', 'Đã đăng xuất', 'Phiên làm việc đã kết thúc an toàn');
 }
 
-window.switchLoginTab = switchLoginTab;
-window.selectQuickUser = selectQuickUser;
-window.deselectQuickUser = deselectQuickUser;
-window.appendQuickPin = appendQuickPin;
-window.clearQuickPin = clearQuickPin;
-window.submitQuickPinLogin = submitQuickPinLogin;
-window.submitStandardLogin = submitStandardLogin;
+window.switchLoginRole = switchLoginRole;
+window.switchLoginTab = switchLoginRole;
+window.appendAdminPin = appendAdminPin;
+window.clearAdminPin = clearAdminPin;
+window.submitAdminPinLogin = submitAdminPinLogin;
+window.submitStaffLogin = submitStaffLogin;
+window.appendQuickPin = appendAdminPin;
+window.clearQuickPin = clearAdminPin;
+window.submitQuickPinLogin = submitAdminPinLogin;
+window.submitStandardLogin = submitStaffLogin;
 window.logoutUser = logoutUser;
 window.showLoginScreen = showLoginScreen;
 window.hideLoginScreen = hideLoginScreen;

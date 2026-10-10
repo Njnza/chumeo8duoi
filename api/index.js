@@ -1356,6 +1356,58 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// Rate limiting & Brute force protection map (Max 5 attempts, lockout 60s)
+const loginAttempts = new Map();
+
+function getClientIp(req) {
+  return (req.headers['x-forwarded-for']?.split(',')[0].trim() || req.socket.remoteAddress || '127.0.0.1');
+}
+
+function checkLoginLockout(key) {
+  const record = loginAttempts.get(key);
+  if (!record) return { locked: false, remainingAttempts: 5 };
+  
+  if (record.lockedUntil && record.lockedUntil > Date.now()) {
+    const secondsLeft = Math.ceil((record.lockedUntil - Date.now()) / 1000);
+    return { locked: true, retryAfter: secondsLeft };
+  }
+  
+  if (record.lockedUntil && record.lockedUntil <= Date.now()) {
+    loginAttempts.delete(key);
+    return { locked: false, remainingAttempts: 5 };
+  }
+  
+  return { locked: false, remainingAttempts: Math.max(0, 5 - record.count) };
+}
+
+function recordLoginFailure(key) {
+  let record = loginAttempts.get(key);
+  if (!record || (record.lockedUntil && record.lockedUntil <= Date.now())) {
+    record = { count: 1, lockedUntil: null };
+  } else {
+    record.count += 1;
+  }
+  
+  if (record.count >= 5) {
+    record.lockedUntil = Date.now() + 60 * 1000;
+    loginAttempts.set(key, record);
+    return { locked: true, retryAfter: 60 };
+  }
+  
+  loginAttempts.set(key, record);
+  return { locked: false, remainingAttempts: 5 - record.count };
+}
+
+function clearLoginAttempts(key) {
+  loginAttempts.delete(key);
+}
+
+app.get('/api/users/lockout-status', (req, res) => {
+  const clientIp = getClientIp(req);
+  const lockout = checkLoginLockout(clientIp);
+  res.json(lockout);
+});
+
 app.get('/api/users/:id', async (req, res) => {
   try {
     const db = await getDatabase();
@@ -1431,28 +1483,79 @@ app.delete('/api/users/:id', async (req, res) => {
 app.post('/api/users/authenticate', async (req, res) => {
   try {
     const db = await getDatabase();
-    const { usernameOrPin, pin } = req.body;
-    const activeUsers = await db.collection('users').find({ status: 'active' }).toArray();
+    const { usernameOrPin, pin, password, username, mode, userId } = req.body;
+    const clientIp = getClientIp(req);
 
-    if (pin === undefined) {
-      for (const u of activeUsers) {
-        if (verifyPin(usernameOrPin, u.pin)) {
-          const { pin: _p, ...safeUser } = u;
-          return res.json(safeUser);
+    // 1. Check if client is locked out
+    const lockout = checkLoginLockout(clientIp);
+    if (lockout.locked) {
+      return res.status(429).json({
+        error: `Bạn đã nhập sai quá 5 lần! Để đảm bảo an toàn, hệ thống tạm khóa ${lockout.retryAfter} giây.`,
+        locked: true,
+        retryAfter: lockout.retryAfter
+      });
+    }
+
+    const activeUsers = await db.collection('users').find({ status: 'active' }).toArray();
+    let authenticatedUser = null;
+
+    // Mode A: Admin PIN login
+    if (mode === 'admin' || (usernameOrPin === 'admin' && pin !== undefined) || (pin !== undefined && !username && !usernameOrPin && !userId)) {
+      const adminPin = String(pin || usernameOrPin || '').trim();
+      const owners = activeUsers.filter(u => u.role === 'owner');
+      for (const o of owners) {
+        if (verifyPin(adminPin, o.pin)) {
+          authenticatedUser = o;
+          break;
         }
       }
-      return res.status(401).json({ error: 'Mã PIN không chính xác hoặc tài khoản đã bị khóa' });
+    }
+    // Mode B: Staff / User login by Username and Password
+    else if (mode === 'staff' || username) {
+      const inputUser = String(username || usernameOrPin || '').trim().toLowerCase();
+      const inputPass = String(password || pin || '').trim();
+      const user = activeUsers.find(u => u.username.toLowerCase() === inputUser);
+      if (user && verifyPin(inputPass, user.pin)) {
+        authenticatedUser = user;
+      }
+    }
+    // Mode C: Legacy / Switch Ca / Lock Screen PIN
+    else if (pin === undefined) {
+      for (const u of activeUsers) {
+        if (verifyPin(usernameOrPin, u.pin)) {
+          authenticatedUser = u;
+          break;
+        }
+      }
+    } else {
+      const targetUser = userId
+        ? activeUsers.find(u => u.id === Number(userId))
+        : activeUsers.find(u => u.username === usernameOrPin || (usernameOrPin !== undefined && u.id === Number(usernameOrPin)));
+      if (targetUser && verifyPin(pin, targetUser.pin)) {
+        authenticatedUser = targetUser;
+      }
     }
 
-    const targetUser = req.body.userId
-      ? activeUsers.find(u => u.id === Number(req.body.userId))
-      : activeUsers.find(u => u.username === usernameOrPin || (usernameOrPin !== undefined && u.id === Number(usernameOrPin)));
-
-    if (!targetUser || !verifyPin(pin, targetUser.pin)) {
-      return res.status(401).json({ error: 'Tài khoản hoặc mã PIN không đúng' });
+    // Check result
+    if (!authenticatedUser) {
+      const failInfo = recordLoginFailure(clientIp);
+      if (failInfo.locked) {
+        return res.status(429).json({
+          error: `Bạn đã nhập sai quá 5 lần! Để đảm bảo an toàn, hệ thống tạm khóa ${failInfo.retryAfter} giây.`,
+          locked: true,
+          retryAfter: failInfo.retryAfter
+        });
+      }
+      return res.status(401).json({
+        error: `Thông tin đăng nhập không chính xác. Bạn còn ${failInfo.remainingAttempts} lần thử.`,
+        locked: false,
+        remainingAttempts: failInfo.remainingAttempts
+      });
     }
 
-    const { pin: _p, ...safeUser } = targetUser;
+    // Success -> Clear failed attempts
+    clearLoginAttempts(clientIp);
+    const { pin: _p, ...safeUser } = authenticatedUser;
     res.json(safeUser);
   } catch (err) {
     res.status(500).json({ error: err.message });

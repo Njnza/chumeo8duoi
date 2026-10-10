@@ -23,11 +23,20 @@
       });
       if (!res.ok) {
         let errMsg = `HTTP Error ${res.status}`;
+        let errData = null;
         try {
-          const errData = await res.json();
+          errData = await res.json();
           if (errData && errData.error) errMsg = errData.error;
         } catch (_) {}
-        throw new Error(errMsg);
+        const error = new Error(errMsg);
+        error.status = res.status;
+        if (errData) {
+          error.data = errData;
+          error.locked = errData.locked;
+          error.retryAfter = errData.retryAfter;
+          error.remainingAttempts = errData.remainingAttempts;
+        }
+        throw error;
       }
       return await res.json();
     } catch (err) {
@@ -206,8 +215,16 @@
     createUser: (data) => request('/api/users', { method: 'POST', body: JSON.stringify(data) }),
     updateUser: (id, data) => request(`/api/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteUser: (id) => request(`/api/users/${id}`, { method: 'DELETE' }),
-    authenticateUser: (usernameOrPin, pin) =>
-      request('/api/users/authenticate', { method: 'POST', body: JSON.stringify({ usernameOrPin, pin }) }),
+    getLockoutStatus: () => request('/api/users/lockout-status'),
+    authenticateUser: (arg1, arg2) => {
+      let body = {};
+      if (typeof arg1 === 'object' && arg1 !== null) {
+        body = arg1;
+      } else {
+        body = { usernameOrPin: arg1, pin: arg2 };
+      }
+      return request('/api/users/authenticate', { method: 'POST', body: JSON.stringify(body) });
+    },
     verifyOwnerPin: (pin) =>
       request('/api/users/verify-pin', { method: 'POST', body: JSON.stringify({ pin }) }).then((r) => r.valid),
 
