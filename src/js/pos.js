@@ -439,8 +439,8 @@
 
     grid.innerHTML = products.map(p => {
       const price = p.sale_price > 0 ? p.sale_price : p.price;
-      const isOutOfStock = p.stock <= 0;
-      const isLowStock = p.stock > 0 && p.stock <= (p.min_stock || 5);
+      const isOutOfStock = false; // Tạm thời bỏ qua quản lý số lượng
+      const isLowStock = false;
       const unit = p.unit || 'cái';
 
       // Check expiry status
@@ -461,7 +461,7 @@
       return `
         <div class="pos-product-card ${isOutOfStock ? 'out-of-stock' : ''}"
              onclick="pageModules.pos.addToCart(${p.id})"
-             title="${escapeHtml(p.name)} - Tồn: ${p.stock}${p.expiry_date ? ` (HSD: ${p.expiry_date})` : ''}">
+             title="${escapeHtml(p.name)}${p.expiry_date ? ` (HSD: ${p.expiry_date})` : ''}">
           <div class="card-image-wrap">
             ${p.image ? `
               <img src="${escapeHtml(window.formatProductImageUrl ? window.formatProductImageUrl(p.image) : p.image)}" alt="" loading="lazy" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'fallback-img\\'>📦</div>';">
@@ -482,10 +482,7 @@
   // ==================== CART OPERATIONS ====================
   function addToCart(productId) {
     const product = products.find(p => p.id === productId);
-    if (!product || product.stock <= 0) {
-      showToast('warning', 'Hết hàng', `${product?.name || 'Sản phẩm'} hiện đã hết hàng`);
-      return;
-    }
+    if (!product) return;
 
     if (product.expiry_date) {
       const today = new Date(); today.setHours(0,0,0,0);
@@ -502,10 +499,7 @@
     const existing = inv.cart.find(item => item.product_id === productId);
 
     if (existing) {
-      if (existing.quantity >= product.stock) {
-        showToast('warning', 'Đạt giới hạn tồn kho', `${product.name} chỉ còn ${product.stock} sản phẩm`);
-        return;
-      }
+      /* Bỏ qua giới hạn tồn kho */
       existing.quantity++;
       const unitPrice = Math.max(0, existing.price - (existing.discount || 0));
       existing.subtotal = existing.quantity * unitPrice;
@@ -538,10 +532,7 @@
       removeFromCart(index);
       return;
     }
-    if (newQty > item.max_stock) {
-      showToast('warning', 'Vượt tồn kho', `Chỉ còn ${item.max_stock} sản phẩm`);
-      return;
-    }
+    /* Bỏ qua giới hạn max_stock */
 
     item.quantity = newQty;
     const unitPrice = Math.max(0, item.price - (item.discount || 0));
@@ -557,10 +548,7 @@
 
     let qty = parseInt(value) || 1;
     if (qty <= 0) qty = 1;
-    if (qty > item.max_stock) {
-      showToast('warning', 'Vượt tồn kho', `Chỉ còn ${item.max_stock} sản phẩm`);
-      qty = item.max_stock;
-    }
+    /* Bỏ qua giới hạn max_stock */
 
     item.quantity = qty;
     const unitPrice = Math.max(0, item.price - (item.discount || 0));

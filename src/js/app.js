@@ -109,6 +109,19 @@ function applyThemeMode(mode, saveToDb = false) {
   const btnEl = document.getElementById('themeModeToggleBtn');
   if (btnEl) {
     btnEl.title = isDark ? 'Chuyển sang chế độ Sáng (Light Mode)' : 'Chuyển sang chế độ Tối (Dark Mode)';
+    btnEl.classList.toggle('active', isDark);
+  }
+
+  const btnLight = document.getElementById('btnThemeModeLight');
+  const btnDark = document.getElementById('btnThemeModeDark');
+  if (btnLight && btnDark) {
+    if (isDark) {
+      btnLight.className = 'btn btn-sm btn-outline';
+      btnDark.className = 'btn btn-sm btn-primary';
+    } else {
+      btnLight.className = 'btn btn-sm btn-primary';
+      btnDark.className = 'btn btn-sm btn-outline';
+    }
   }
 
   localStorage.setItem('shoppro_theme_mode', isDark ? 'dark' : 'light');

@@ -203,8 +203,7 @@
           </td>
           ${isOwner ? `<td class="text-muted">${formatCurrency(p.cost_price || 0)}</td>` : ''}
           <td>
-            <span class="${isLow && p.stock > 0 ? 'text-warning fw-600' : p.stock <= 0 ? 'text-danger fw-600' : ''}">${p.stock}</span>
-            <span class="text-muted"> ${escapeHtml(p.unit || '')}</span>
+            <span class="badge badge-default" style="font-weight:600;" title="Tạm thời không giới hạn số lượng">Không giới hạn</span>
           </td>
           <td>${getExpiryBadge(p.expiry_date)}</td>
           <td>
@@ -353,8 +352,8 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">TỒN KHO</label>
-              <input type="number" class="form-control" id="pStock" value="${p.stock || 0}" min="0">
+              <label class="form-label">TỒN KHO <span class="text-muted" style="font-weight:normal; font-size:11px;">(Tạm tắt quản lý)</span></label>
+              <input type="number" class="form-control" id="pStock" value="${p.stock || 999}" min="0">
             </div>
             <div class="form-group">
               <label class="form-label">ĐƠN VỊ</label>
@@ -363,8 +362,8 @@
           </div>
           <div class="form-row">
             <div class="form-group">
-              <label class="form-label">TỒN KHO TỐI THIỂU</label>
-              <input type="number" class="form-control" id="pMinStock" value="${p.min_stock || 5}" min="0">
+              <label class="form-label">TỒN KHO TỐI THIỂU <span class="text-muted" style="font-weight:normal; font-size:11px;">(Tạm tắt)</span></label>
+              <input type="number" class="form-control" id="pMinStock" value="${p.min_stock || 0}" min="0">
             </div>
             <div class="form-group">
               <label class="form-label">HẠN SỬ DỤNG (EXPIRY DATE)</label>
@@ -613,8 +612,8 @@
       sale_price: parseFloat(document.getElementById('pSalePrice').value) || 0,
       cost_price: parseFloat(document.getElementById('pCostPrice').value) || 0,
       category_id: parseInt(document.getElementById('pCategory').value) || null,
-      stock: parseInt(document.getElementById('pStock').value) || 0,
-      min_stock: parseInt(document.getElementById('pMinStock').value) || 5,
+      stock: parseInt(document.getElementById('pStock').value) || 999,
+      min_stock: parseInt(document.getElementById('pMinStock').value) || 0,
       expiry_date: document.getElementById('pExpiryDate') ? document.getElementById('pExpiryDate').value.trim() : '',
       unit: document.getElementById('pUnit').value.trim() || 'cái',
       status: document.getElementById('pStatus').value,

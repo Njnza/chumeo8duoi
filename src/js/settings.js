@@ -32,6 +32,19 @@
                 Tùy chọn bảng màu phong cách hoặc chọn mã màu riêng. Toàn bộ ứng dụng (thanh bên, tiêu đề, nút thanh toán, tab hóa đơn...) sẽ đổi màu tức thì.
               </p>
 
+              <!-- Theme Mode Toggle -->
+              <div class="form-group" style="margin-bottom:14px;">
+                <label class="form-label" style="margin-bottom:8px;">CHẾ ĐỘ HIỂN THỊ (GIAO DIỆN SÁNG / TỐI)</label>
+                <div style="display:flex; gap:10px;">
+                  <button type="button" class="btn btn-sm ${typeof getThemeMode === 'function' && getThemeMode() === 'light' ? 'btn-primary' : 'btn-outline'}" id="btnThemeModeLight" onclick="pageModules.settings.setMode('light')">
+                    ☀️ Chế độ Sáng
+                  </button>
+                  <button type="button" class="btn btn-sm ${typeof getThemeMode === 'function' && getThemeMode() === 'dark' ? 'btn-primary' : 'btn-outline'}" id="btnThemeModeDark" onclick="pageModules.settings.setMode('dark')">
+                    🌙 Chế độ Tối (Dark Mode)
+                  </button>
+                </div>
+              </div>
+
               <!-- Color Swatches Grid -->
               <label class="form-label" style="margin-bottom:8px;">BẢNG MÀU PHỔ BIẾN</label>
               <div class="theme-palettes-grid" id="themePalettesGrid" style="display:grid; grid-template-columns:repeat(2, 1fr); gap:8px; margin-bottom:14px;">
@@ -477,6 +490,12 @@
 
   function resetDefaultTheme() {
     selectThemePreset('#364e68');
+  }
+
+  function setMode(mode) {
+    if (typeof applyThemeMode === 'function') {
+      applyThemeMode(mode, true);
+    }
   }
 
   let memberTiers = [];
@@ -1082,7 +1101,7 @@
   registerPage('settings', {
     render, init, saveAll, doBackup, doRestore, addTierRow, removeTierRow,
     loadUsersList, openAddUserModal, openEditUserModal, saveUserForm, deleteUserAccount,
-    renderThemePalettes, selectThemePreset, onCustomColorInput, onHexInputChange, resetDefaultTheme,
+    renderThemePalettes, selectThemePreset, onCustomColorInput, onHexInputChange, resetDefaultTheme, setMode,
     loadRecentLogs, openLogFolder, clearTodayLog, renderPluginsList, onTogglePlugin, openPluginsFolder,
     onBankQrFileSelected, removeBankQrImage, updateBankQrPreview
   });

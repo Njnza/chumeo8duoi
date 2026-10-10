@@ -137,7 +137,7 @@ app.post('/api/products', async (req, res) => {
       price: Number(data.price) || 0,
       sale_price: Number(data.sale_price) || 0,
       cost_price: Number(data.cost_price) || 0,
-      stock: Number(data.stock) || 0,
+      stock: Number(data.stock) || 999,
       min_stock: Number(data.min_stock) || 5,
       unit: data.unit || 'cái',
       image: data.image || '',
@@ -931,11 +931,8 @@ app.get('/api/reports/dashboard', async (req, res) => {
     const todayOrders = todayAgg[0]?.count || 0;
     const todayRevenue = todayAgg[0]?.total || 0;
 
-    // Low stock
-    const lowStockProducts = await db.collection('products').find({
-      status: 'active',
-      $expr: { $and: [{ $gt: ['$stock', 0] }, { $lte: ['$stock', '$min_stock'] }] }
-    }).toArray();
+    // Low stock (Tạm thời bỏ qua quản lý tồn kho)
+    const lowStockProducts = [];
 
     res.json({
       totalProducts,
