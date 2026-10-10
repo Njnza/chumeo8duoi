@@ -4,13 +4,20 @@
   "description": "ShopPro - Phần mềm quản lý bán hàng POS cho Windows",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron . --dev",
+    "start": "node api/index.js",
+    "web": "node api/index.js",
+    "build": "echo 'Build OK'",
+    "electron": "electron .",
+    "dev": "node api/index.js",
     "test": "node tests/db.test.js && node tests/d2_features.test.js"
   },
   "author": "ShopPro",
   "license": "MIT",
   "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.7",
+    "express": "^5.3.0",
+    "mongodb": "^7.7.0",
     "qrcode": "^1.5.4",
     "sql.js": "^1.14.2",
     "ws": "^8.18.0",
