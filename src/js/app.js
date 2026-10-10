@@ -678,6 +678,12 @@ function formatCurrency(amount) {
     maximumFractionDigits: 0
   }).format(amount) + '₫';
 }
+window.formatCurrency = formatCurrency;
+
+function formatMoney(amount) {
+  return formatCurrency(amount);
+}
+window.formatMoney = formatMoney;
 
 function formatNumber(amount) {
   if (!amount && amount !== 0) return '0';
