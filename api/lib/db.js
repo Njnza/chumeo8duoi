@@ -14,14 +14,39 @@ if (!uri) {
 let cachedClient = null;
 let cachedDb = null;
 
+function findMongoUri() {
+  // 1. Check exact or known integration variables
+  let val = process.env.MONGODB_URI || process.env.chumeo8duoi_MONGODB_URI || process.env.MONGODB_URL || process.env.STORAGE_MONGODB_URI;
+
+  // 2. Scan all environment variables dynamically
+  if (!val) {
+    for (const [k, v] of Object.entries(process.env)) {
+      if (v && typeof v === 'string' && (k.endsWith('MONGODB_URI') || k.endsWith('MONGODB_URL') || k.includes('MONGODB'))) {
+        if (v.includes('mongodb://') || v.includes('mongodb+srv://')) {
+          console.log(`[DB] Auto-detected MongoDB URI from env variable: ${k}`);
+          val = v;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!val) val = uri;
+  if (!val) return null;
+
+  // Strip accidental surrounding quotes and whitespace
+  val = String(val).trim().replace(/^["']+|["']+$/g, '').trim();
+  return val;
+}
+
 async function getDatabase() {
   if (cachedDb) {
     return cachedDb;
   }
 
-  const connectionUri = process.env.MONGODB_URI || process.env.MONGODB_URL || process.env.STORAGE_MONGODB_URI || uri;
+  const connectionUri = findMongoUri();
   if (!connectionUri) {
-    throw new Error('Chưa cấu hình MONGODB_URI trên Vercel. Vui lòng vào Vercel -> Settings -> Environment Variables để thêm biến MONGODB_URI.');
+    throw new Error('Chưa tìm thấy biến kết nối MongoDB trên Vercel. Vui lòng kiểm tra biến chumeo8duoi_MONGODB_URI hoặc MONGODB_URI.');
   }
 
   if (!cachedClient) {
