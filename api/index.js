@@ -1370,12 +1370,15 @@ app.post('/api/users/authenticate', async (req, res) => {
       return res.status(401).json({ error: 'Mã PIN không chính xác hoặc tài khoản đã bị khóa' });
     }
 
-    const user = activeUsers.find(u => u.username === usernameOrPin);
-    if (!user || !verifyPin(pin, user.pin)) {
+    const targetUser = req.body.userId
+      ? activeUsers.find(u => u.id === Number(req.body.userId))
+      : activeUsers.find(u => u.username === usernameOrPin || (usernameOrPin !== undefined && u.id === Number(usernameOrPin)));
+
+    if (!targetUser || !verifyPin(pin, targetUser.pin)) {
       return res.status(401).json({ error: 'Tài khoản hoặc mã PIN không đúng' });
     }
 
-    const { pin: _p, ...safeUser } = user;
+    const { pin: _p, ...safeUser } = targetUser;
     res.json(safeUser);
   } catch (err) {
     res.status(500).json({ error: err.message });

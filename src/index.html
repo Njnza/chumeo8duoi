@@ -64,6 +64,10 @@
         <button class="user-dropdown-item" onclick="openChangePinModal()">
           <span>🔑</span> Đổi mã PIN
         </button>
+        <div class="user-dropdown-divider"></div>
+        <button class="user-dropdown-item text-danger" onclick="logoutUser()" style="color:var(--danger, #ef4444); font-weight:600;">
+          <span>🚪</span> Đăng xuất
+        </button>
       </div>
 
       <!-- Theme Mode Toggle (Light / Dark) -->
@@ -72,6 +76,118 @@
       </button>
     </div>
   </header>
+
+  <!-- Login Screen Overlay -->
+  <div class="login-screen-overlay" id="loginScreenOverlay" style="display:none;">
+    <div class="login-screen-container">
+      <div class="login-card">
+        <!-- Logo & Header -->
+        <div class="login-header">
+          <div class="login-brand-logo">
+            <span class="login-logo-emoji">🛒</span>
+          </div>
+          <h1 class="login-title">ShopPro</h1>
+          <p class="login-subtitle">Hệ Thống Quản Lý Bán Hàng & POS</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="login-tabs">
+          <button type="button" class="login-tab-btn active" id="tabBtnQuick" onclick="switchLoginTab('quick')">
+            ⚡ Chọn tài khoản nhanh
+          </button>
+          <button type="button" class="login-tab-btn" id="tabBtnForm" onclick="switchLoginTab('form')">
+            🔑 Tên đăng nhập & PIN
+          </button>
+        </div>
+
+        <!-- Tab 1: Quick Select User -->
+        <div class="login-tab-content active" id="loginTabQuick">
+          <div class="quick-user-prompt" id="quickUserPrompt">Chọn tài khoản của bạn để vào ca:</div>
+          
+          <div class="quick-users-list" id="quickUsersList">
+            <div class="quick-user-loading">Đang tải danh sách nhân viên...</div>
+          </div>
+
+          <!-- Quick User PIN Input (shown when user selected) -->
+          <div class="quick-pin-container" id="quickPinContainer" style="display:none;">
+            <div class="selected-user-banner" id="selectedUserBanner">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="sub-avatar" id="selUserAvatar" style="font-size:24px;">👑</span>
+                <div>
+                  <div class="sub-name" id="selUserName" style="font-weight:700; font-size:14px;">Chủ Cửa Hàng</div>
+                  <div class="sub-role" id="selUserRole" style="font-size:11.5px; color:var(--text-secondary);">Chủ Shop</div>
+                </div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="deselectQuickUser()" style="padding:4px 8px; font-size:12px;">Đổi tài khoản</button>
+            </div>
+
+            <div class="pin-field-wrapper" style="margin-bottom:12px;">
+              <label class="form-label" style="text-align:center; font-size:11px; margin-bottom:6px;">NHẬP MÃ PIN (4 - 6 CHỮ SỐ)</label>
+              <input type="password" id="quickPinInput" maxlength="6" class="pin-dots-input" placeholder="••••" autofocus onkeydown="if(event.key==='Enter') submitQuickPinLogin()">
+            </div>
+
+            <div class="numpad-grid" style="margin-bottom:10px;">
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('1')">1</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('2')">2</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('3')">3</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('4')">4</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('5')">5</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('6')">6</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('7')">7</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('8')">8</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('9')">9</button>
+              <button type="button" class="numpad-btn clear" onclick="clearQuickPin()">C</button>
+              <button type="button" class="numpad-btn" onclick="appendQuickPin('0')">0</button>
+              <button type="button" class="numpad-btn ok" onclick="submitQuickPinLogin()">OK ↵</button>
+            </div>
+
+            <div class="form-check remember-check" style="justify-content:center; margin-top:8px;">
+              <input type="checkbox" id="quickRememberMe" checked>
+              <label for="quickRememberMe" style="cursor:pointer; font-size:12px;">Ghi nhớ đăng nhập trên thiết bị này</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Standard Username & PIN Form -->
+        <div class="login-tab-content" id="loginTabForm" style="display:none;">
+          <form id="standardLoginForm" onsubmit="event.preventDefault(); submitStandardLogin();">
+            <div class="form-group mb-md" style="text-align:left;">
+              <label class="form-label" for="loginUsername">TÊN ĐĂNG NHẬP</label>
+              <div class="input-with-icon">
+                <span class="input-icon">👤</span>
+                <input type="text" class="form-control" id="loginUsername" placeholder="admin hoặc thungan" autocomplete="username" required>
+              </div>
+            </div>
+
+            <div class="form-group mb-md" style="text-align:left;">
+              <label class="form-label" for="loginPin">MÃ PIN / MẬT KHẨU</label>
+              <div class="input-with-icon">
+                <span class="input-icon">🔒</span>
+                <input type="password" class="form-control" id="loginPin" placeholder="Nhập mã PIN..." maxlength="8" autocomplete="current-password" required>
+              </div>
+            </div>
+
+            <div class="form-check remember-check mb-lg" style="justify-content:flex-start;">
+              <input type="checkbox" id="formRememberMe" checked>
+              <label for="formRememberMe" style="cursor:pointer; font-size:12px;">Ghi nhớ đăng nhập trên thiết bị này</label>
+            </div>
+
+            <button type="submit" class="btn btn-primary login-submit-btn" id="btnStandardLogin" style="width:100%; height:44px; font-weight:700; font-size:14px;">
+              <span>Đăng Nhập</span>
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </form>
+        </div>
+
+        <!-- Default Credentials Helper -->
+        <div class="login-helper-box">
+          <div class="helper-title">💡 Tài khoản mặc định hệ thống:</div>
+          <div class="helper-item">👑 <strong>Chủ Shop:</strong> <code>admin</code> &nbsp;·&nbsp; PIN: <code>1234</code></div>
+          <div class="helper-item">🧑‍💼 <strong>Thu Ngân:</strong> <code>thungan</code> &nbsp;·&nbsp; PIN: <code>0000</code></div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Lock Screen Overlay -->
   <div class="lock-screen-overlay" id="lockScreenOverlay" style="display:none;">
@@ -180,6 +296,14 @@
               <circle cx="12" cy="12" r="3"/>
             </svg>
             <span class="si-label">Cài đặt</span>
+          </button>
+          <button class="sidebar-item sidebar-logout-btn" onclick="logoutUser()" title="Đăng xuất khỏi hệ thống">
+            <svg class="si-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span class="si-label">Đăng xuất</span>
           </button>
         </div>
       </aside>

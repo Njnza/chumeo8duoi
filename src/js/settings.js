@@ -972,6 +972,9 @@
         if (currentUser && currentUser.id === id) {
           currentUser = { ...currentUser, name, username, role, phone, status };
           sessionStorage.setItem('shoppro_user', JSON.stringify(currentUser));
+          if (localStorage.getItem('shoppro_user_remembered')) {
+            localStorage.setItem('shoppro_user_remembered', JSON.stringify(currentUser));
+          }
           updateUserUI();
         }
       } else {

@@ -188,6 +188,10 @@ function _doNavigateTo(pageName) {
 }
 
 function navigateTo(pageName) {
+  if (!getCurrentUser()) {
+    showLoginScreen();
+    return;
+  }
   if (currentUser && currentUser.role === 'staff' && (pageName === 'reports' || pageName === 'settings')) {
     promptOwnerPin(`Truy cập ${pageName === 'reports' ? 'Báo Cáo Doanh Thu & Lợi Nhuận' : 'Cài Đặt Hệ Thống'}`).then(ok => {
       if (ok) {
@@ -207,11 +211,18 @@ function registerPage(name, module) {
 
 // ==================== USER & AUTH STATE ====================
 let currentUser = null;
+let selectedQuickUser = null;
 
 function getCurrentUser() {
   if (currentUser) return currentUser;
   try {
-    const saved = sessionStorage.getItem('shoppro_user');
+    let saved = sessionStorage.getItem('shoppro_user');
+    if (!saved) {
+      saved = localStorage.getItem('shoppro_user_remembered');
+      if (saved) {
+        sessionStorage.setItem('shoppro_user', saved);
+      }
+    }
     if (saved) {
       currentUser = JSON.parse(saved);
       return currentUser;
@@ -222,22 +233,246 @@ function getCurrentUser() {
 window.getCurrentUser = getCurrentUser;
 
 async function initCurrentUser() {
-  try {
-    const saved = sessionStorage.getItem('shoppro_user');
-    if (saved) {
-      currentUser = JSON.parse(saved);
-    } else {
-      const users = await api.getUsers();
-      if (Array.isArray(users) && users.length > 0) {
-        currentUser = users.find(u => u.role === 'owner') || users[0];
-        sessionStorage.setItem('shoppro_user', JSON.stringify(currentUser));
-      }
-    }
-  } catch (err) {
-    console.error('Init user error:', err);
+  const user = getCurrentUser();
+  if (user) {
+    currentUser = user;
+    hideLoginScreen();
+    updateUserUI();
+    return true;
+  } else {
+    showLoginScreen();
+    return false;
   }
-  updateUserUI();
 }
+
+function showLoginScreen() {
+  const overlay = document.getElementById('loginScreenOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  deselectQuickUser();
+  loadLoginUsers();
+}
+
+function hideLoginScreen() {
+  const overlay = document.getElementById('loginScreenOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function switchLoginTab(tab) {
+  const tabQuick = document.getElementById('loginTabQuick');
+  const tabForm = document.getElementById('loginTabForm');
+  const btnQuick = document.getElementById('tabBtnQuick');
+  const btnForm = document.getElementById('tabBtnForm');
+
+  if (tab === 'quick') {
+    if (tabQuick) tabQuick.style.display = 'block';
+    if (tabForm) tabForm.style.display = 'none';
+    if (btnQuick) btnQuick.classList.add('active');
+    if (btnForm) btnForm.classList.remove('active');
+    loadLoginUsers();
+  } else {
+    if (tabQuick) tabQuick.style.display = 'none';
+    if (tabForm) tabForm.style.display = 'block';
+    if (btnQuick) btnQuick.classList.remove('active');
+    if (btnForm) btnForm.classList.add('active');
+    setTimeout(() => {
+      const uInput = document.getElementById('loginUsername');
+      if (uInput) uInput.focus();
+    }, 100);
+  }
+}
+
+async function loadLoginUsers() {
+  const listEl = document.getElementById('quickUsersList');
+  if (!listEl) return;
+  try {
+    const users = await api.getUsers();
+    if (!Array.isArray(users) || users.length === 0) {
+      listEl.innerHTML = '<div class="text-muted" style="text-align:center; padding:10px;">Chưa có tài khoản nào</div>';
+      return;
+    }
+    const activeUsers = users.filter(u => u.status !== 'inactive');
+    listEl.innerHTML = activeUsers.map(u => `
+      <div class="quick-user-card" onclick="selectQuickUser(${u.id}, '${escapeHtml(u.name)}', '${u.role}', '${escapeHtml(u.username)}')">
+        <div class="quick-user-left">
+          <div class="quick-user-avatar">${u.role === 'owner' ? '👑' : '🧑‍💼'}</div>
+          <div>
+            <div class="quick-user-name">${escapeHtml(u.name)}</div>
+            <div class="quick-user-meta">@${escapeHtml(u.username)} · ${u.role === 'owner' ? 'Chủ Cửa Hàng' : 'Thu Ngân'}</div>
+          </div>
+        </div>
+        <div>
+          <span class="badge ${u.role === 'owner' ? 'badge-success' : 'badge-default'}">
+            ${u.role === 'owner' ? '👑 Chủ Shop' : '🧑‍💼 Thu Ngân'}
+          </span>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    listEl.innerHTML = `<div class="text-danger" style="text-align:center; padding:10px;">Lỗi tải người dùng: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function selectQuickUser(id, name, role, username) {
+  selectedQuickUser = { id, name, role, username };
+  const promptEl = document.getElementById('quickUserPrompt');
+  const listEl = document.getElementById('quickUsersList');
+  const pinContainer = document.getElementById('quickPinContainer');
+  const selAvatar = document.getElementById('selUserAvatar');
+  const selName = document.getElementById('selUserName');
+  const selRole = document.getElementById('selUserRole');
+  const pinInput = document.getElementById('quickPinInput');
+
+  if (promptEl) promptEl.style.display = 'none';
+  if (listEl) listEl.style.display = 'none';
+  if (pinContainer) pinContainer.style.display = 'block';
+
+  if (selAvatar) selAvatar.textContent = role === 'owner' ? '👑' : '🧑‍💼';
+  if (selName) selName.textContent = name;
+  if (selRole) selRole.textContent = role === 'owner' ? '👑 Chủ Cửa Hàng' : '🧑‍💼 Thu Ngân';
+
+  if (pinInput) {
+    pinInput.value = '';
+    setTimeout(() => pinInput.focus(), 100);
+  }
+}
+
+function deselectQuickUser() {
+  selectedQuickUser = null;
+  const promptEl = document.getElementById('quickUserPrompt');
+  const listEl = document.getElementById('quickUsersList');
+  const pinContainer = document.getElementById('quickPinContainer');
+  const pinInput = document.getElementById('quickPinInput');
+
+  if (promptEl) promptEl.style.display = 'block';
+  if (listEl) listEl.style.display = 'flex';
+  if (pinContainer) pinContainer.style.display = 'none';
+  if (pinInput) pinInput.value = '';
+}
+
+function appendQuickPin(digit) {
+  const pinInput = document.getElementById('quickPinInput');
+  if (!pinInput) return;
+  if (pinInput.value.length >= 6) return;
+  pinInput.value += digit;
+}
+
+function clearQuickPin() {
+  const pinInput = document.getElementById('quickPinInput');
+  if (pinInput) {
+    pinInput.value = '';
+    pinInput.focus();
+  }
+}
+
+async function submitQuickPinLogin() {
+  if (!selectedQuickUser) {
+    showToast('warning', 'Vui lòng chọn tài khoản');
+    return;
+  }
+  const pinInput = document.getElementById('quickPinInput');
+  const pin = pinInput?.value?.trim();
+  if (!pin) {
+    showToast('warning', 'Chưa nhập mã PIN', 'Vui lòng nhập mã PIN để đăng nhập');
+    if (pinInput) pinInput.focus();
+    return;
+  }
+
+  try {
+    const authUser = await api.authenticateUser(selectedQuickUser.id, pin);
+    if (!authUser) throw new Error('Xác thực không thành công');
+
+    const remember = document.getElementById('quickRememberMe')?.checked;
+    if (remember) {
+      localStorage.setItem('shoppro_user_remembered', JSON.stringify(authUser));
+    } else {
+      localStorage.removeItem('shoppro_user_remembered');
+    }
+    sessionStorage.setItem('shoppro_user', JSON.stringify(authUser));
+
+    onLoginSuccess(authUser);
+  } catch (err) {
+    showToast('error', 'Đăng nhập thất bại', err.message || 'Mã PIN không chính xác');
+    if (pinInput) {
+      pinInput.value = '';
+      pinInput.focus();
+    }
+  }
+}
+
+async function submitStandardLogin() {
+  const uInput = document.getElementById('loginUsername');
+  const pInput = document.getElementById('loginPin');
+  const username = uInput?.value?.trim();
+  const pin = pInput?.value?.trim();
+
+  if (!username) {
+    showToast('warning', 'Thiếu thông tin', 'Vui lòng nhập tên đăng nhập');
+    if (uInput) uInput.focus();
+    return;
+  }
+  if (!pin) {
+    showToast('warning', 'Thiếu thông tin', 'Vui lòng nhập mã PIN hoặc mật khẩu');
+    if (pInput) pInput.focus();
+    return;
+  }
+
+  try {
+    const authUser = await api.authenticateUser(username, pin);
+    if (!authUser) throw new Error('Tài khoản hoặc mã PIN không đúng');
+
+    const remember = document.getElementById('formRememberMe')?.checked;
+    if (remember) {
+      localStorage.setItem('shoppro_user_remembered', JSON.stringify(authUser));
+    } else {
+      localStorage.removeItem('shoppro_user_remembered');
+    }
+    sessionStorage.setItem('shoppro_user', JSON.stringify(authUser));
+
+    onLoginSuccess(authUser);
+  } catch (err) {
+    showToast('error', 'Đăng nhập thất bại', err.message || 'Tên đăng nhập hoặc mã PIN không đúng');
+    if (pInput) {
+      pInput.value = '';
+      pInput.focus();
+    }
+  }
+}
+
+function onLoginSuccess(user) {
+  currentUser = user;
+  hideLoginScreen();
+  updateUserUI();
+  updateShiftStatusBadge();
+  showToast('success', 'Đăng nhập thành công', `Xin chào ${user.name} (${user.role === 'owner' ? '👑 Chủ Shop' : '🧑‍💼 Thu Ngân'})`);
+
+  if (!currentPage || (user.role === 'staff' && (currentPage === 'reports' || currentPage === 'settings'))) {
+    navigateTo('pos');
+  } else if (currentPage && pageModules[currentPage] && typeof pageModules[currentPage].init === 'function') {
+    pageModules[currentPage].init();
+  }
+}
+
+function logoutUser() {
+  closeUserMenu();
+  closeModal();
+  sessionStorage.removeItem('shoppro_user');
+  localStorage.removeItem('shoppro_user_remembered');
+  currentUser = null;
+  selectedQuickUser = null;
+  showLoginScreen();
+  showToast('info', 'Đã đăng xuất', 'Phiên làm việc đã kết thúc an toàn');
+}
+
+window.switchLoginTab = switchLoginTab;
+window.selectQuickUser = selectQuickUser;
+window.deselectQuickUser = deselectQuickUser;
+window.appendQuickPin = appendQuickPin;
+window.clearQuickPin = clearQuickPin;
+window.submitQuickPinLogin = submitQuickPinLogin;
+window.submitStandardLogin = submitStandardLogin;
+window.logoutUser = logoutUser;
+window.showLoginScreen = showLoginScreen;
+window.hideLoginScreen = hideLoginScreen;
 
 function updateUserUI() {
   if (!currentUser) return;
@@ -327,7 +562,13 @@ function clearLockPin() {
 async function submitUnlock() {
   if (!currentLockPin) return;
   try {
-    const ok = currentUser && currentUser.pin === currentLockPin;
+    let ok = false;
+    if (currentUser) {
+      try {
+        const auth = await api.authenticateUser(currentUser.id, currentLockPin);
+        if (auth) ok = true;
+      } catch (_) {}
+    }
     if (ok) {
       document.getElementById('lockScreenOverlay').style.display = 'none';
       currentLockPin = '';
@@ -427,8 +668,8 @@ async function submitSwitchPin(userId) {
     return;
   }
   try {
-    const user = await api.getUserById(userId);
-    if (!user || user.pin !== pin) {
+    const user = await api.authenticateUser(userId, pin);
+    if (!user) {
       showToast('error', 'Mã PIN không đúng');
       if (pinInput) { pinInput.value = ''; pinInput.focus(); }
       return;
@@ -552,10 +793,17 @@ async function submitChangePin() {
     showToast('warning', 'Vui lòng điền đầy đủ thông tin');
     return;
   }
-  if (currentPin !== currentUser.pin) {
+  try {
+    const auth = await api.authenticateUser(currentUser.id, currentPin);
+    if (!auth) {
+      showToast('error', 'Mã PIN hiện tại không đúng');
+      return;
+    }
+  } catch (_) {
     showToast('error', 'Mã PIN hiện tại không đúng');
     return;
   }
+
   if (newPin.length < 4 || newPin.length > 6 || !/^\d+$/.test(newPin)) {
     showToast('warning', 'Mã PIN mới phải gồm 4 đến 6 chữ số');
     return;
@@ -567,8 +815,10 @@ async function submitChangePin() {
 
   try {
     await api.updateUser(currentUser.id, { pin: newPin });
-    currentUser.pin = newPin;
     sessionStorage.setItem('shoppro_user', JSON.stringify(currentUser));
+    if (localStorage.getItem('shoppro_user_remembered')) {
+      localStorage.setItem('shoppro_user_remembered', JSON.stringify(currentUser));
+    }
     closeModal();
     showToast('success', 'Đổi mã PIN thành công');
   } catch (err) {
@@ -1028,6 +1278,12 @@ async function generateAddTokenQR() {
 // ==================== KEYBOARD SHORTCUTS ====================
 function setupKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
+    // If login overlay or lock screen is active, block global shortcuts
+    const loginOverlay = document.getElementById('loginScreenOverlay');
+    if (loginOverlay && loginOverlay.style.display !== 'none') return;
+    const lockOverlay = document.getElementById('lockScreenOverlay');
+    if (lockOverlay && lockOverlay.style.display !== 'none') return;
+
     // Don't trigger shortcuts when typing in inputs
     const activeEl = document.activeElement;
     const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
@@ -1122,10 +1378,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await initThemeFromDb();
 
   // Initialize current user & permissions
-  await initCurrentUser();
+  const isLoggedIn = await initCurrentUser();
 
-  // Initialize shift status badge
-  await updateShiftStatusBadge();
+  // Initialize shift status badge and navigate to POS if authenticated
+  if (isLoggedIn) {
+    await updateShiftStatusBadge();
+    setTimeout(() => navigateTo('pos'), 100);
+  }
 
   // Setup events
   setupScannerEvents();
@@ -1145,9 +1404,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
-  // Navigate to POS
-  setTimeout(() => navigateTo('pos'), 100);
 });
 
 // ==================== GLOBAL ERROR LOGGING (MOI-07) ====================
