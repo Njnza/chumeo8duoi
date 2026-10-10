@@ -781,42 +781,18 @@ function setupScannerEvents() {
     updateScannerStatus(false);
   });
 
-  // Handle add product submitted from phone scanner
+  // Handle add product submitted from phone scanner (already saved to DB by server)
   api.onAddProduct(async (data) => {
-    console.log('[Scanner] Add product request from phone:', data);
+    console.log('[Scanner] Add product notification from phone:', data);
     const p = data.product;
-    if (!p || !p.barcode || !p.name) return;
+    if (!p) return;
 
-    try {
-      let catId = null;
-      if (p.category) {
-        const cats = await api.getCategories();
-        const foundCat = cats.find(c => c.name.toLowerCase() === p.category.toLowerCase());
-        if (foundCat) catId = foundCat.id;
-      }
-
-      await api.addProduct({
-        sku: p.barcode,
-        barcode: p.barcode,
-        name: p.name,
-        price: p.price || 0,
-        cost_price: Math.round((p.price || 0) * 0.7),
-        stock: p.stock || 10,
-        category_id: catId,
-        unit: p.unit || 'cái',
-        image: p.image || p.image_url || '',
-        status: 'active'
-      });
-
-      showToast('success', 'Đã thêm sản phẩm từ điện thoại!', `${p.name} (${p.barcode})`);
-      if (pageModules.products && typeof pageModules.products.refresh === 'function') {
-        pageModules.products.refresh();
-      }
-      if (pageModules.pos && typeof pageModules.pos.loadProducts === 'function') {
-        pageModules.pos.loadProducts();
-      }
-    } catch (err) {
-      showToast('error', 'Lỗi thêm sản phẩm từ điện thoại', err.message);
+    showToast('success', 'Đã thêm sản phẩm từ điện thoại!', `${p.name} (${p.barcode || ''})`);
+    if (pageModules.products && typeof pageModules.products.refresh === 'function') {
+      pageModules.products.refresh();
+    }
+    if (pageModules.pos && typeof pageModules.pos.loadProducts === 'function') {
+      pageModules.pos.loadProducts();
     }
   });
 

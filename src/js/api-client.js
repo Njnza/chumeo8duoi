@@ -60,6 +60,7 @@
     scannerPollingStarted = true;
 
     // 1. Poll for barcode events from phone
+    const processedEventIds = new Set();
     setInterval(async () => {
       try {
         const events = await request(`/api/scanner/events?since=${lastEventTimestamp}`);
@@ -69,6 +70,14 @@
             scannerConnectedListeners.forEach(fn => fn({ ip: 'Điện thoại di động' }));
           }
           for (const ev of events) {
+            const evKey = String(ev.id || `${ev.code}-${ev.created_at}`);
+            if (processedEventIds.has(evKey)) continue;
+            processedEventIds.add(evKey);
+            if (processedEventIds.size > 300) {
+              const firstKey = processedEventIds.values().next().value;
+              processedEventIds.delete(firstKey);
+            }
+
             const evTime = new Date(ev.created_at).getTime();
             if (evTime >= lastEventTimestamp) {
               lastEventTimestamp = evTime + 1;

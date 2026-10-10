@@ -600,9 +600,110 @@
       }
     }
 
+    // ==================== SCAN CONFIRMATION POPUP MODAL ====================
+    let scanConfirmTimeout = null;
+    let scanConfirmInterval = null;
+    let pendingConfirmBarcode = '';
+
+    function showScanConfirmModal(data) {
+      if (!data) return;
+      const modal = document.getElementById('scanConfirmModal');
+      if (!modal) return;
+
+      clearTimeout(scanConfirmTimeout);
+      clearInterval(scanConfirmInterval);
+
+      const badge = document.getElementById('scanConfirmBadge');
+      const badgeText = document.getElementById('scanConfirmBadgeText');
+      const imgEl = document.getElementById('scanConfirmImg');
+      const imgPlaceholder = document.getElementById('scanConfirmImgPlaceholder');
+      const nameEl = document.getElementById('scanConfirmName');
+      const metaEl = document.getElementById('scanConfirmMeta');
+      const priceEl = document.getElementById('scanConfirmPrice');
+      const btnAddNew = document.getElementById('btnScanAddNew');
+      const countdownEl = document.getElementById('scanConfirmCountdown');
+      const timerFill = document.getElementById('scanConfirmTimerFill');
+
+      const p = data.product;
+      const code = data.code || (p && (p.barcode || p.sku)) || '';
+      pendingConfirmBarcode = code;
+
+      if (data.found && p) {
+        badge.className = 'scan-confirm-badge success';
+        badgeText.textContent = data.isBatch ? '📦 ĐÃ GOM VÀO ĐỢT QUÉT' : '✓ ĐÃ THÊM VÀO GIỎ HÀNG POS!';
+        nameEl.textContent = p.name || 'Sản phẩm';
+        metaEl.textContent = `Mã: ${code}`;
+        const priceVal = (p.sale_price && p.sale_price > 0 && p.sale_price < p.price) ? p.sale_price : (p.price || 0);
+        priceEl.textContent = formatPrice(priceVal);
+
+        const imgUrl = formatClientImageUrl(p.image || p.image_url);
+        if (imgUrl) {
+          imgEl.src = imgUrl;
+          imgEl.style.display = 'block';
+          imgPlaceholder.style.display = 'none';
+        } else {
+          imgEl.style.display = 'none';
+          imgPlaceholder.style.display = 'block';
+        }
+
+        if (btnAddNew) btnAddNew.style.display = 'none';
+      } else {
+        badge.className = 'scan-confirm-badge warning';
+        badgeText.textContent = '⚠ CHƯA CÓ TRONG HỆ THỐNG';
+        nameEl.textContent = 'Mã chưa có sản phẩm';
+        metaEl.textContent = `Mã: ${code}`;
+        priceEl.textContent = 'Mã đã gửi sang POS';
+        imgEl.style.display = 'none';
+        imgPlaceholder.style.display = 'block';
+
+        if (btnAddNew) btnAddNew.style.display = 'block';
+      }
+
+      modal.style.display = 'flex';
+
+      if (timerFill) {
+        timerFill.style.transition = 'none';
+        timerFill.style.width = '100%';
+        void timerFill.offsetWidth;
+        timerFill.style.transition = 'width 2.8s linear';
+        timerFill.style.width = '0%';
+      }
+
+      let timeLeft = 3;
+      if (countdownEl) countdownEl.textContent = `(${timeLeft}s)`;
+
+      scanConfirmInterval = setInterval(() => {
+        timeLeft--;
+        if (countdownEl) countdownEl.textContent = `(${Math.max(1, timeLeft)}s)`;
+      }, 900);
+
+      scanConfirmTimeout = setTimeout(() => {
+        closeScanConfirmModal();
+      }, 2800);
+    }
+
+    function closeScanConfirmModal() {
+      clearTimeout(scanConfirmTimeout);
+      clearInterval(scanConfirmInterval);
+      const modal = document.getElementById('scanConfirmModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function goToAddProductFromConfirm() {
+      closeScanConfirmModal();
+      if (pendingConfirmBarcode) {
+        goToAddProductWithBarcode(pendingConfirmBarcode);
+      }
+    }
+
     // ==================== PRODUCT INFO DISPLAY ====================
     function showProductInfo(data) {
+      // 1. Show confirmation popup directly on screen/viewfinder
+      showScanConfirmModal(data);
+
+      // 2. Also populate the info card below
       const container = document.getElementById('productInfoCard');
+      if (!container) return;
 
       if (data.found && data.product) {
         const p = data.product;
@@ -644,7 +745,7 @@
               <div class="product-image" style="background: var(--orange-light);">❓</div>
               <div class="product-details">
                 <div class="product-name">Sản phẩm chưa có trong hệ thống</div>
-                <div class="product-stock">Mã: ${escapeHtml(data.barcode || '')}</div>
+                <div class="product-stock">Mã: ${escapeHtml(data.barcode || data.code || '')}</div>
               </div>
             </div>
             <div class="product-status-bar not-found">⚠ Mã đã gửi — Sản phẩm chưa được thêm vào hệ thống</div>
@@ -695,6 +796,9 @@
      */
     function handleLiveScanSuccess(code, mode, wrapId) {
       if (!code) return;
+      const modal = document.getElementById('scanConfirmModal');
+      if (modal && modal.style.display === 'flex') return;
+
       code = String(code).trim();
       const now = Date.now();
       if (code === lastLiveScanCode && (now - lastLiveScanTime) < 2200) {
@@ -762,6 +866,11 @@
 
       const tick = async () => {
         if (!isLiveScanning && !isCheckLiveScanning && !isAddLiveScanning) return;
+        const modal = document.getElementById('scanConfirmModal');
+        if (modal && modal.style.display === 'flex') {
+          liveAcceleratorTimer = setTimeout(tick, 200);
+          return;
+        }
 
         const video = document.querySelector('#' + containerId + ' video');
         if (!video || video.readyState < 2 || video.videoWidth === 0) {
@@ -2260,6 +2369,20 @@
         showBatchToast(`+1 Đã gom: ${name}`);
       }
 
+      const targetItem = existing || batchItems[batchItems.length - 1];
+      if (typeof showScanConfirmModal === 'function' && targetItem) {
+        showScanConfirmModal({
+          isBatch: true,
+          found: true,
+          code,
+          product: {
+            name: targetItem.name,
+            price: targetItem.price,
+            barcode: code
+          }
+        });
+      }
+
       updateBatchUI();
     }
 
@@ -2442,6 +2565,8 @@
     window.sendBatchToPos = sendBatchToPos;
     window.installPwaApp = installPwaApp;
     window.playTone = playTone;
+    window.closeScanConfirmModal = closeScanConfirmModal;
+    window.goToAddProductFromConfirm = goToAddProductFromConfirm;
 
     // ==================== INIT ====================
     connectWS();

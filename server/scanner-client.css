@@ -1130,3 +1130,213 @@
       animation: fadeIn 0.15s ease;
       display: none;
     }
+
+    /* Live Scan Confirmation Modal Popup */
+    .scan-confirm-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 99999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeIn 0.15s ease-out;
+    }
+
+    .scan-confirm-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+    }
+
+    .scan-confirm-card {
+      position: relative;
+      width: 100%;
+      max-width: 380px;
+      background: #ffffff;
+      border-radius: 20px;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.2);
+      overflow: hidden;
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      padding: 20px;
+    }
+
+    @keyframes popIn {
+      from {
+        opacity: 0;
+        transform: scale(0.85) translateY(16px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .scan-confirm-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      font-weight: 800;
+      letter-spacing: 0.4px;
+      margin-bottom: 14px;
+      text-align: center;
+    }
+
+    .scan-confirm-badge.success {
+      background: #dcfce7;
+      color: #15803d;
+      border: 1.5px solid #86efac;
+    }
+
+    .scan-confirm-badge.warning {
+      background: #fef3c7;
+      color: #b45309;
+      border: 1.5px solid #fde68a;
+    }
+
+    .scan-confirm-body {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 12px;
+      background: #f8fafc;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .scan-confirm-img-wrap {
+      width: 72px;
+      height: 72px;
+      border-radius: 10px;
+      background: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .scan-confirm-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .scan-confirm-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .scan-confirm-name {
+      font-size: 1rem;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.3;
+      margin-bottom: 4px;
+      word-break: break-word;
+    }
+
+    .scan-confirm-meta {
+      font-size: 0.75rem;
+      color: #64748b;
+      font-family: monospace;
+      margin-bottom: 4px;
+    }
+
+    .scan-confirm-price {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #2563eb;
+    }
+
+    .scan-confirm-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .btn-scan-continue {
+      width: 100%;
+      padding: 13px;
+      border-radius: 14px;
+      background: #10b981;
+      color: #ffffff;
+      font-size: 0.95rem;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    .btn-scan-continue:active {
+      transform: scale(0.97);
+      background: #059669;
+    }
+
+    .btn-scan-add-new {
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      background: #3b82f6;
+      color: #ffffff;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+    }
+
+    .scan-confirm-timer-bar {
+      margin-top: 12px;
+      height: 5px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .scan-confirm-timer-fill {
+      height: 100%;
+      background: #10b981;
+      width: 100%;
+      border-radius: 4px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      .scan-confirm-card {
+        background: #1e293b;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .scan-confirm-body {
+        background: #0f172a;
+        border-color: #334155;
+      }
+      .scan-confirm-name {
+        color: #f8fafc;
+      }
+      .scan-confirm-meta {
+        color: #94a3b8;
+      }
+      .scan-confirm-price {
+        color: #60a5fa;
+      }
+      .scan-confirm-timer-bar {
+        background: #334155;
+      }
+    }

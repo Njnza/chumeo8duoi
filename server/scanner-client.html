@@ -512,6 +512,44 @@
     </div>
   </div>
 
+  <!-- Live Scan Confirmation Modal Popup -->
+  <div id="scanConfirmModal" class="scan-confirm-modal" style="display:none;">
+    <div class="scan-confirm-backdrop" onclick="closeScanConfirmModal()"></div>
+    <div class="scan-confirm-card">
+      <div class="scan-confirm-badge success" id="scanConfirmBadge">
+        <span class="icon">✅</span> <span id="scanConfirmBadgeText">ĐÃ THÊM VÀO GIỎ HÀNG POS</span>
+      </div>
+      
+      <div class="scan-confirm-body">
+        <div class="scan-confirm-img-wrap" id="scanConfirmImgWrap">
+          <img id="scanConfirmImg" src="" alt="" style="display:none;">
+          <span id="scanConfirmImgPlaceholder" style="font-size:32px;">📦</span>
+        </div>
+        <div class="scan-confirm-info">
+          <div class="scan-confirm-name" id="scanConfirmName">Tên sản phẩm</div>
+          <div class="scan-confirm-meta" id="scanConfirmMeta">Mã: 893456...</div>
+          <div class="scan-confirm-price" id="scanConfirmPrice">0 ₫</div>
+        </div>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="scan-confirm-actions">
+        <button type="button" class="btn-scan-continue" onclick="closeScanConfirmModal()">
+          <span>🎯 Quét tiếp ngay</span>
+          <span class="countdown" id="scanConfirmCountdown">(3s)</span>
+        </button>
+        <button type="button" class="btn-scan-add-new" id="btnScanAddNew" style="display:none;" onclick="goToAddProductFromConfirm()">
+          ➕ Thêm SP này vào hệ thống
+        </button>
+      </div>
+      
+      <!-- Progress bar for auto-closing -->
+      <div class="scan-confirm-timer-bar">
+        <div class="scan-confirm-timer-fill" id="scanConfirmTimerFill"></div>
+      </div>
+    </div>
+  </div>
+
   <script src="/scanner-client.js"></script>
 </body>
 </html>

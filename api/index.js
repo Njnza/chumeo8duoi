@@ -125,6 +125,15 @@ app.post('/api/products', async (req, res) => {
   try {
     const db = await getDatabase();
     const data = req.body;
+
+    // Check if barcode already exists
+    if (data.barcode && String(data.barcode).trim()) {
+      const existing = await db.collection('products').findOne({ barcode: String(data.barcode).trim() });
+      if (existing) {
+        return res.status(400).json({ error: `Mã vạch "${data.barcode}" đã tồn tại trên sản phẩm "${existing.name}"` });
+      }
+    }
+
     const nextId = await getNextId(db, 'products');
 
     const newProduct = {
@@ -1565,6 +1574,37 @@ app.post('/api/add-product', async (req, res) => {
     }
 
     lastScannerPing = Date.now();
+
+    // Check if barcode or sku already exists to prevent duplicate insertion
+    let existing = null;
+    if (p.barcode) {
+      existing = await db.collection('products').findOne({ barcode: String(p.barcode).trim() });
+    }
+    if (!existing && p.sku) {
+      existing = await db.collection('products').findOne({ sku: String(p.sku).trim() });
+    }
+
+    if (existing) {
+      await db.collection('products').updateOne({ id: existing.id }, {
+        $set: {
+          name: p.name || existing.name,
+          price: Number(p.price) || existing.price,
+          sale_price: Number(p.sale_price) || existing.sale_price,
+          unit: p.unit || existing.unit,
+          image: p.image_url || p.image || existing.image,
+          updated_at: new Date()
+        }
+      });
+      const updated = await db.collection('products').findOne({ id: existing.id });
+      await db.collection('scanner_events').insertOne({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        code: updated.barcode || updated.sku,
+        format: 'ADD_PRODUCT',
+        product: updated,
+        created_at: new Date()
+      });
+      return res.json({ success: true, message: 'Đã cập nhật sản phẩm thành công', product: updated });
+    }
 
     const nextId = await getNextId(db, 'products');
     const newProduct = {
