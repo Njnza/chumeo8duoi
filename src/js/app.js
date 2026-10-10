@@ -933,14 +933,19 @@ function updateScannerStatus(online, info = null) {
 async function showScannerModal() {
   try {
     const info = await api.getScannerInfo();
-    const url = info && info.running ? `http://${info.ip}:${info.port}` : 'Server chưa chạy';
+    const url = (info && info.running)
+      ? (info.url || info.httpsUrl || `${window.location.origin}/scanner.html`)
+      : `${window.location.origin}/scanner.html`;
+
     let qrUrl = '';
-    if (info && info.running && api.generateQRCode) {
+    if (api.generateQRCode) {
       qrUrl = await api.generateQRCode(url);
     }
-    if (!qrUrl && info && info.running) {
-      qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+    if (!qrUrl) {
+      qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(url)}`;
     }
+
+    const hasDistinctHttps = info && info.httpsUrl && info.httpsUrl !== url;
 
     const content = `
       <div class="modal" style="width: 500px; max-width: 95vw; background: var(--bg-card); border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.35);">
@@ -954,15 +959,15 @@ async function showScannerModal() {
           </div>
 
           <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">
-            Dùng camera điện thoại hoặc Zalo quét mã QR trên để mở trang quét barcode
+            Dùng camera điện thoại (iPhone/Android) hoặc Zalo quét mã QR trên để mở máy quét di động
           </p>
 
           <div style="background: var(--bg-tertiary); padding: 10px 14px; border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border); text-align: left;">
-            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">LINK TRUY CẬP (ĐÃ CÓ CHỤP ẢNH QUÉT MÃ CHO IPHONE):</div>
-            <code style="color: var(--accent); font-size: 14px; font-weight: 700; user-select: all;">${url}</code>
-            ${info && info.httpsUrl ? `
-              <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">HOẶC LINK HTTPS (CHO LIVE VIDEO CAMERA LIÊN TỤC):</div>
-              <code style="color: var(--accent); font-size: 13px; font-weight: 700; user-select: all;">${info.httpsUrl}</code>
+            <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">LINK TRUY CẬP TRÊN ĐIỆN THOẠI:</div>
+            <code style="color: var(--accent); font-size: 14px; font-weight: 700; user-select: all; word-break: break-all;">${url}</code>
+            ${hasDistinctHttps ? `
+              <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted);">HOẶC LINK HTTPS (CHO LIVE CAMERA LIÊN TỤC):</div>
+              <code style="color: var(--accent); font-size: 13px; font-weight: 700; user-select: all; word-break: break-all;">${info.httpsUrl}</code>
             ` : ''}
           </div>
 
@@ -979,10 +984,10 @@ async function showScannerModal() {
           </div>
 
           <div style="font-size: 12px; color: var(--text-secondary); text-align: left; background: var(--accent-light); border-left: 3px solid var(--accent); padding: 10px 14px; border-radius: 4px; margin-top: 12px;">
-            <strong>💡 Hướng dẫn cho iPhone (Safari):</strong><br>
-            1. Đảm bảo điện thoại và máy tính kết nối <strong>cùng mạng Wi-Fi</strong>.<br>
-            2. Mở link trên điện thoại ➔ Bấm nút <strong>"📸 Chụp ảnh quét mã"</strong> để chụp và quét ngay tức thì.<br>
-            3. Sản phẩm sẽ tự động nhảy vào giỏ hàng POS!
+            <strong>💡 Hướng dẫn sử dụng:</strong><br>
+            1. Quét mã QR bằng camera điện thoại hoặc Zalo để mở máy quét.<br>
+            2. Có thể chọn <strong>"📸 Chụp ảnh quét mã"</strong> hoặc <strong>"🎥 Quét liên tục (Live Camera)"</strong>.<br>
+            3. Mã vạch và ảnh sản phẩm quét từ điện thoại sẽ <strong>đồng bộ tức thì về POS</strong>!
           </div>
         </div>
         <div class="modal-footer" style="justify-content: flex-end;">

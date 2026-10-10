@@ -272,15 +272,74 @@
     }
 
     let isConnectingWs = false;
+    let isCloudMode = false;
+    let cloudPingTimer = null;
+
+    async function checkHttpCloudMode() {
+      try {
+        const res = await fetch('/api/scanner/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: 'mobile-scanner', ua: navigator.userAgent })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) {
+            isCloudMode = true;
+            const statusEl = document.getElementById('wsStatus');
+            if (statusEl && (!ws || ws.readyState !== WebSocket.OPEN)) {
+              statusEl.className = 'status-bar connected';
+              statusEl.innerHTML = '<span class="status-dot" style="background:#10b981;box-shadow:0 0 10px #10b981;"></span><span>Đã kết nối qua Web Cloud ⚡ (Sẵn sàng quét)</span>';
+            }
+            if (!cloudPingTimer) {
+              cloudPingTimer = setInterval(pingCloudServer, 6000);
+            }
+            return true;
+          }
+        }
+      } catch (e) {
+        console.warn('[CloudMode] Ping failed:', e);
+      }
+      return false;
+    }
+
+    async function pingCloudServer() {
+      if (!isCloudMode) return;
+      try {
+        const res = await fetch('/api/scanner/ping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source: 'mobile-scanner' })
+        });
+        if (res.ok) {
+          const statusEl = document.getElementById('wsStatus');
+          if (statusEl && (!ws || ws.readyState !== WebSocket.OPEN)) {
+            statusEl.className = 'status-bar connected';
+            statusEl.innerHTML = '<span class="status-dot" style="background:#10b981;box-shadow:0 0 10px #10b981;"></span><span>Đã kết nối qua Web Cloud ⚡ (Sẵn sàng quét)</span>';
+          }
+        } else {
+          const statusEl = document.getElementById('wsStatus');
+          if (statusEl && (!ws || ws.readyState !== WebSocket.OPEN)) {
+            statusEl.className = 'status-bar disconnected';
+            statusEl.innerHTML = '<span class="status-dot"></span><span>Mất kết nối máy chủ</span>';
+          }
+        }
+      } catch (_) {}
+    }
 
     function connectWS() {
       if (isConnectingWs) return;
       if (ws && ws.readyState === WebSocket.OPEN) return;
 
       const statusEl = document.getElementById('wsStatus');
-      statusEl.className = 'status-bar connecting';
-      statusEl.innerHTML = '<span class="status-dot"></span><span>Đang kết nối với Shop Desktop...</span>';
+      if (!isCloudMode) {
+        statusEl.className = 'status-bar connecting';
+        statusEl.innerHTML = '<span class="status-dot"></span><span>Đang kết nối với Shop Desktop...</span>';
+      }
       isConnectingWs = true;
+
+      // Also trigger cloud ping check
+      checkHttpCloudMode();
 
       try {
         if (ws) {
@@ -294,17 +353,23 @@
           statusEl.innerHTML = '<span class="status-dot"></span><span>Đã kết nối với Shop Desktop</span>';
         };
 
-        ws.onclose = () => {
+        ws.onclose = async () => {
           isConnectingWs = false;
-          statusEl.className = 'status-bar disconnected';
-          statusEl.innerHTML = '<span class="status-dot"></span><span>Mất kết nối — đang thử lại...</span>';
-          setTimeout(connectWS, 2500);
+          const cloudOk = await checkHttpCloudMode();
+          if (!cloudOk) {
+            statusEl.className = 'status-bar disconnected';
+            statusEl.innerHTML = '<span class="status-dot"></span><span>Mất kết nối — đang thử lại...</span>';
+            setTimeout(connectWS, 4000);
+          }
         };
 
-        ws.onerror = () => {
+        ws.onerror = async () => {
           isConnectingWs = false;
-          statusEl.className = 'status-bar disconnected';
-          statusEl.innerHTML = '<span class="status-dot"></span><span>Không thể kết nối</span>';
+          const cloudOk = await checkHttpCloudMode();
+          if (!cloudOk) {
+            statusEl.className = 'status-bar disconnected';
+            statusEl.innerHTML = '<span class="status-dot"></span><span>Không thể kết nối</span>';
+          }
         };
 
         ws.onmessage = (event) => {
@@ -315,6 +380,7 @@
         };
       } catch (err) {
         isConnectingWs = false;
+        checkHttpCloudMode();
         console.error('WS error:', err);
       }
     }
@@ -322,16 +388,23 @@
     // Auto-reconnect when user returns to browser from camera or locks/unlocks phone
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        if (!ws || ws.readyState !== WebSocket.OPEN) connectWS();
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          if (isCloudMode) checkHttpCloudMode();
+          else connectWS();
+        }
       }
     });
     window.addEventListener('focus', () => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) connectWS();
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        if (isCloudMode) checkHttpCloudMode();
+        else connectWS();
+      }
     });
 
     function ensureWsConnected(timeoutMs = 2500) {
       return new Promise((resolve) => {
         if (ws && ws.readyState === WebSocket.OPEN) return resolve(true);
+        if (isCloudMode) return resolve(false); // In cloud mode, resolve immediately to avoid delaying HTTP requests
         connectWS();
         const start = Date.now();
         const interval = setInterval(() => {
@@ -339,7 +412,7 @@
             clearInterval(interval);
             return resolve(true);
           }
-          if (Date.now() - start > timeoutMs) {
+          if (isCloudMode || (Date.now() - start > timeoutMs)) {
             clearInterval(interval);
             return resolve(false);
           }
@@ -523,7 +596,7 @@
         } catch (err) {
           console.warn('HTTP barcode send error:', err);
         }
-        connectWS();
+        if (!isCloudMode) connectWS();
       }
     }
 

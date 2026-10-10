@@ -44,6 +44,75 @@
     return valid.length > 0 ? `?${valid.join('&')}` : '';
   }
 
+  // Scanner real-time event bridge for Web / Vercel
+  const barcodeListeners = [];
+  const scannerConnectedListeners = [];
+  const scannerDisconnectedListeners = [];
+  const addProductListeners = [];
+  const productPhotoListeners = [];
+  let lastEventTimestamp = Date.now() - 5000;
+  let lastPhotoTimestamp = Date.now() - 5000;
+  let scannerPollingStarted = false;
+  let isPhoneOnline = false;
+
+  function startScannerPolling() {
+    if (scannerPollingStarted) return;
+    scannerPollingStarted = true;
+
+    // 1. Poll for barcode events from phone
+    setInterval(async () => {
+      try {
+        const events = await request(`/api/scanner/events?since=${lastEventTimestamp}`);
+        if (Array.isArray(events) && events.length > 0) {
+          if (!isPhoneOnline) {
+            isPhoneOnline = true;
+            scannerConnectedListeners.forEach(fn => fn({ ip: 'Điện thoại di động' }));
+          }
+          for (const ev of events) {
+            const evTime = new Date(ev.created_at).getTime();
+            if (evTime >= lastEventTimestamp) {
+              lastEventTimestamp = evTime + 1;
+            }
+            if (ev.format === 'ADD_PRODUCT' && ev.product) {
+              addProductListeners.forEach(fn => fn({ product: ev.product }));
+            } else {
+              barcodeListeners.forEach(fn => fn({ code: ev.code, format: ev.format }));
+            }
+          }
+        }
+      } catch (_) {}
+    }, 1200);
+
+    // 2. Poll for photos sent from phone camera
+    setInterval(async () => {
+      try {
+        const photo = await request(`/api/scanner/latest-photo?since=${lastPhotoTimestamp}`);
+        if (photo && photo.image) {
+          lastPhotoTimestamp = new Date(photo.created_at).getTime() + 1;
+          productPhotoListeners.forEach(fn => fn({ image: photo.image, relativePath: photo.image }));
+        }
+      } catch (_) {}
+    }, 2000);
+
+    // 3. Heartbeat for connection badge
+    setInterval(async () => {
+      try {
+        const status = await request('/api/scanner/status');
+        if (status && status.online) {
+          if (!isPhoneOnline) {
+            isPhoneOnline = true;
+            scannerConnectedListeners.forEach(fn => fn({ ip: 'Điện thoại di động' }));
+          }
+        } else {
+          if (isPhoneOnline) {
+            isPhoneOnline = false;
+            scannerDisconnectedListeners.forEach(fn => fn());
+          }
+        }
+      } catch (_) {}
+    }, 6000);
+  }
+
   window.api = {
     // -- Window controls (Safe no-op on Web) --
     window: {
@@ -133,21 +202,39 @@
     verifyOwnerPin: (pin) =>
       request('/api/users/verify-pin', { method: 'POST', body: JSON.stringify({ pin }) }).then((r) => r.valid),
 
-    // -- Scanner (Web fallback) --
+    // -- Scanner (Web & Cloud Bridge) --
     getScannerInfo: () =>
-      Promise.resolve({
+      request('/api/scanner/info').catch(() => ({
+        running: true,
         ip: window.location.hostname,
-        port: window.location.port || '80',
-        url: window.location.origin,
+        port: window.location.port || (window.location.protocol === 'https:' ? '443' : '80'),
+        url: `${window.location.origin}/scanner.html`,
+        httpsUrl: `${window.location.origin}/scanner.html`,
         qrCodeDataUrl: ''
-      }),
+      })),
     generateAddToken: () => Promise.resolve({ token: 'web-' + Math.random().toString(36).substring(2), expiresAt: Date.now() + 3600000 }),
-    generateQRCode: (text) => Promise.resolve(''),
-    onBarcode: () => {},
-    onScannerConnected: () => {},
-    onScannerDisconnected: () => {},
-    onAddProduct: () => {},
-    onProductPhoto: () => {},
+    generateQRCode: (text) =>
+      Promise.resolve(`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(text)}`),
+    onBarcode: (cb) => {
+      if (typeof cb === 'function') barcodeListeners.push(cb);
+      startScannerPolling();
+    },
+    onScannerConnected: (cb) => {
+      if (typeof cb === 'function') scannerConnectedListeners.push(cb);
+      startScannerPolling();
+    },
+    onScannerDisconnected: (cb) => {
+      if (typeof cb === 'function') scannerDisconnectedListeners.push(cb);
+      startScannerPolling();
+    },
+    onAddProduct: (cb) => {
+      if (typeof cb === 'function') addProductListeners.push(cb);
+      startScannerPolling();
+    },
+    onProductPhoto: (cb) => {
+      if (typeof cb === 'function') productPhotoListeners.push(cb);
+      startScannerPolling();
+    },
     openUploadsFolder: () => {},
     getUploadsFolderPath: () => Promise.resolve(''),
     decodeBarcodeFromImage: () => Promise.resolve({ success: false }),

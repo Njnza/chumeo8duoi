@@ -2,6 +2,14 @@
   "outputDirectory": "src",
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/scanner.html", "destination": "/scanner.html" },
+    { "source": "/scanner-client.html", "destination": "/scanner-client.html" },
+    { "source": "/scanner-client.js", "destination": "/scanner-client.js" },
+    { "source": "/scanner-client.css", "destination": "/scanner-client.css" },
+    { "source": "/manifest.json", "destination": "/manifest.json" },
+    { "source": "/sw.js", "destination": "/sw.js" },
+    { "source": "/icon.svg", "destination": "/icon.svg" },
+    { "source": "/libs/(.*)", "destination": "/libs/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
