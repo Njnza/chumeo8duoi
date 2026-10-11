@@ -4,26 +4,26 @@ const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const { WebSocketServer } = require('ws');
-const { setWebSocketServer } = require('./lib/realtime');
+const { setWebSocketServer } = require('../server/lib/realtime');
 
 // Middleware
-const { errorHandler } = require('./middleware/errorHandler');
+const { errorHandler } = require('../server/middleware/errorHandler');
 
 // Route modules
-const { router: productsRouter } = require('./routes/products');
-const categoriesRouter = require('./routes/categories');
-const customersRouter = require('./routes/customers');
-const ordersRouter = require('./routes/orders');
-const shiftsRouter = require('./routes/shifts');
-const cashFlowRouter = require('./routes/cash-flow');
-const reportsRouter = require('./routes/reports');
-const settingsRouter = require('./routes/settings');
-const usersRouter = require('./routes/users');
-const scannerRouter = require('./routes/scanner');
-const auditLogsRouter = require('./routes/audit-logs');
-const backupRouter = require('./routes/backup');
-const realtimeRouter = require('./routes/realtime');
-const exportExcelRouter = require('./routes/export-excel');
+const { router: productsRouter } = require('../server/routes/products');
+const categoriesRouter = require('../server/routes/categories');
+const customersRouter = require('../server/routes/customers');
+const ordersRouter = require('../server/routes/orders');
+const shiftsRouter = require('../server/routes/shifts');
+const cashFlowRouter = require('../server/routes/cash-flow');
+const reportsRouter = require('../server/routes/reports');
+const settingsRouter = require('../server/routes/settings');
+const usersRouter = require('../server/routes/users');
+const scannerRouter = require('../server/routes/scanner');
+const auditLogsRouter = require('../server/routes/audit-logs');
+const backupRouter = require('../server/routes/backup');
+const realtimeRouter = require('../server/routes/realtime');
+const exportExcelRouter = require('../server/routes/export-excel');
 
 const app = express();
 

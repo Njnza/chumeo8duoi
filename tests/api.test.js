@@ -11,9 +11,9 @@ const {
   buildVietnameseRegex,
   buildVietnameseSearchQuery,
   generateOrderCode
-} = require('../api/lib/helpers');
-const { generateToken, authenticateToken, requireRole, JWT_SECRET } = require('../api/middleware/auth');
-const { schemas } = require('../api/middleware/validate');
+} = require('../server/lib/helpers');
+const { generateToken, authenticateToken, requireRole, JWT_SECRET } = require('../server/middleware/auth');
+const { schemas } = require('../server/middleware/validate');
 const jwt = require('jsonwebtoken');
 
 async function runApiTests() {
@@ -129,7 +129,7 @@ async function runApiTests() {
 
   // 7. Audit Logging (T2)
   await test('Audit Log: logAudit ghi nhận cấu trúc đầy đủ và an toàn', async () => {
-    const { logAudit } = require('../api/lib/audit');
+    const { logAudit } = require('../server/lib/audit');
     const entry = await logAudit({
       action: 'TEST_AUDIT',
       entity: 'orders',
@@ -148,7 +148,7 @@ async function runApiTests() {
 
   // 8. Real-time Event Broadcasting (T4)
   await test('Real-time: SSE client registration & broadcast', async () => {
-    const { broadcast, addSseClient, removeSseClient } = require('../api/lib/realtime');
+    const { broadcast, addSseClient, removeSseClient } = require('../server/lib/realtime');
     let receivedData = null;
     const mockRes = {
       write(msg) {
