@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
+const { WebSocketServer } = require('ws');
+const { setWebSocketServer } = require('./lib/realtime');
 
 // Middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -17,13 +20,17 @@ const reportsRouter = require('./routes/reports');
 const settingsRouter = require('./routes/settings');
 const usersRouter = require('./routes/users');
 const scannerRouter = require('./routes/scanner');
+const auditLogsRouter = require('./routes/audit-logs');
+const backupRouter = require('./routes/backup');
+const realtimeRouter = require('./routes/realtime');
+const exportExcelRouter = require('./routes/export-excel');
 
 const app = express();
 
 // Base middleware
 app.use(cors());
-app.use(express.json({ limit: '15mb' }));
-app.use(express.urlencoded({ extended: true, limit: '15mb' }));
+app.use(express.json({ limit: '20mb' }));
+app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // Mount API routes
 app.use('/api/products', productsRouter);
@@ -35,6 +42,10 @@ app.use('/api/cash-flow', cashFlowRouter);
 app.use('/api/reports', reportsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/users', usersRouter);
+app.use('/api/audit-logs', auditLogsRouter);
+app.use('/api/backup', backupRouter);
+app.use('/api/events', realtimeRouter);
+app.use('/api/export-excel', exportExcelRouter);
 app.use('/api', scannerRouter);
 
 // Serve frontend static files in local dev mode
@@ -50,10 +61,19 @@ if (fs.existsSync(srcPath)) {
 // Centralized error handling middleware
 app.use(errorHandler);
 
-// For local testing
+// For local testing & standalone server with WebSocket
 const PORT = process.env.PORT || 3000;
 if (require.main === module) {
-  app.listen(PORT, () => {
+  const server = http.createServer(app);
+  try {
+    const wss = new WebSocketServer({ server, path: '/ws' });
+    setWebSocketServer(wss);
+    console.log('[WebSocket] Real-time server mounted on /ws');
+  } catch (err) {
+    console.warn('[WebSocket] Warning initializing WebSocket server:', err.message);
+  }
+
+  server.listen(PORT, () => {
     console.log(`[Web Server] ShopPro POS running at http://localhost:${PORT}`);
   });
 }

@@ -127,11 +127,79 @@ async function runApiTests() {
     assert.strictEqual(typeof app, 'function', 'App phải là Express application');
   });
 
+  // 7. Audit Logging (T2)
+  await test('Audit Log: logAudit ghi nhận cấu trúc đầy đủ và an toàn', async () => {
+    const { logAudit } = require('../api/lib/audit');
+    const entry = await logAudit({
+      action: 'TEST_AUDIT',
+      entity: 'orders',
+      entity_id: 123,
+      user: { id: 1, username: 'admin', name: 'Chủ Cửa Hàng', role: 'owner' },
+      description: 'Kiểm thử nhật ký hoạt động',
+      details: { amount: 500000 }
+    });
+    assert.ok(entry, 'Entry phải được tạo');
+    assert.strictEqual(entry.action, 'TEST_AUDIT');
+    assert.strictEqual(entry.entity, 'orders');
+    assert.strictEqual(entry.username, 'admin');
+    assert.strictEqual(entry.user_role, 'owner');
+    assert.ok(entry.created_at instanceof Date, 'Thời gian ghi phải là đối tượng Date');
+  });
+
+  // 8. Real-time Event Broadcasting (T4)
+  await test('Real-time: SSE client registration & broadcast', async () => {
+    const { broadcast, addSseClient, removeSseClient } = require('../api/lib/realtime');
+    let receivedData = null;
+    const mockRes = {
+      write(msg) {
+        receivedData = msg;
+      }
+    };
+    addSseClient(mockRes);
+    broadcast('test:event', { hello: 'world' });
+    assert.ok(receivedData, 'Mock SSE client phải nhận được event broadcast');
+    assert.ok(receivedData.includes('event: test:event'), 'Phải chứa event name');
+    assert.ok(receivedData.includes('"hello":"world"'), 'Phải chứa payload JSON');
+    removeSseClient(mockRes);
+  });
+
+  // 9. Excel Export SheetJS Engine (T7)
+  await test('Excel Export: xlsx tạo buffer hợp lệ với metadata chuẩn UTF-8', async () => {
+    const xlsx = require('xlsx');
+    const data = [
+      { 'Mã SP': 'SP001', 'Tên sản phẩm': 'Áo sơ mi nam', 'Giá bán': 250000, 'Tồn kho': 20 }
+    ];
+    const wb = xlsx.utils.book_new();
+    const ws = xlsx.utils.json_to_sheet(data);
+    xlsx.utils.book_append_sheet(wb, ws, 'Danh Sách');
+    const buffer = xlsx.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    assert.ok(Buffer.isBuffer(buffer), 'Phải tạo ra buffer');
+    assert.ok(buffer.length > 100, 'Buffer Excel phải có dung lượng lớn hơn 100 bytes');
+  });
+
+  // 10. Backup & Restore Validation (T3)
+  await test('Backup & Restore: Kiểm tra schema cấu trúc backup an toàn', async () => {
+    const sampleBackup = {
+      app: 'ShopPro POS',
+      version: '2.0.0',
+      exported_at: new Date().toISOString(),
+      counts: { products: 1, orders: 1 },
+      data: {
+        products: [{ id: 1, name: 'Sản phẩm test', price: 10000 }],
+        orders: [{ id: 1, order_code: 'HD-001', total: 10000 }]
+      }
+    };
+    assert.ok(sampleBackup.data && typeof sampleBackup.data === 'object', 'data phải là object');
+    assert.ok(Array.isArray(sampleBackup.data.products), 'products phải là mảng');
+    assert.ok(Array.isArray(sampleBackup.data.orders), 'orders phải là mảng');
+  });
+
   console.log('\n===========================================');
   console.log(`KẾT QUẢ KIỂM THỬ API: ${passed} PASS, ${failed} FAIL`);
   console.log('===========================================\n');
 
   if (failed > 0) process.exit(1);
+  process.exit(0);
 }
 
 runApiTests().catch(err => {

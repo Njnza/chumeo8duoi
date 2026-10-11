@@ -86,12 +86,10 @@ async function runD2Tests() {
     assert.strictEqual(res.latestVersion, '2.1.0');
   });
 
-  // ==================== 3. VIETNAMESE LOCALIZATION (CHỈ DÙNG TIẾNG VIỆT) ====================
-  await test('UI: Giao diện thuần Tiếng Việt chuẩn hóa, không phụ thuộc i18n runtime', async () => {
+  // ==================== 3. VIETNAMESE LOCALIZATION & i18n ENGINE (T9) ====================
+  await test('UI: Giao diện thuần Tiếng Việt chuẩn hóa mặc định (hỗ trợ mở rộng i18n T9)', async () => {
     const htmlPath = path.join(__dirname, '..', 'src', 'index.html');
     const html = fs.readFileSync(htmlPath, 'utf-8');
-    assert.ok(!html.includes('id="langSwitchBtn"'), 'Đã bỏ nút toggle đa ngôn ngữ');
-    assert.ok(!html.includes('src="js/i18n.js"'), 'Đã bỏ nạp i18n.js');
     assert.ok(html.includes('Bán hàng'), 'Menu POS chuẩn Tiếng Việt');
     assert.ok(html.includes('Sản phẩm'), 'Menu Sản phẩm chuẩn Tiếng Việt');
     assert.ok(html.includes('Cài đặt'), 'Menu Cài đặt chuẩn Tiếng Việt');

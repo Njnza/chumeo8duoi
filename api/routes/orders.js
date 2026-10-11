@@ -3,6 +3,8 @@ const router = express.Router();
 const { getDatabase, getNextId } = require('../lib/db');
 const { buildVietnameseSearchQuery } = require('../lib/helpers');
 const { validate, schemas } = require('../middleware/validate');
+const { optionalAuth } = require('../middleware/auth');
+const { logAudit } = require('../lib/audit');
 
 async function generateOrderCode(db) {
   const settings = await db.collection('settings').findOne({ key: 'order_prefix' });
@@ -119,7 +121,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // POST /api/orders
-router.post('/', validate(schemas.order), async (req, res, next) => {
+router.post('/', optionalAuth, validate(schemas.order), async (req, res, next) => {
   try {
     const db = await getDatabase();
     const data = req.body;
@@ -215,6 +217,16 @@ router.post('/', validate(schemas.order), async (req, res, next) => {
       );
     }
 
+    await logAudit({
+      action: 'ORDER_CREATE',
+      entity: 'orders',
+      entity_id: nextId,
+      user: req.user,
+      description: `Tạo đơn hàng ${orderCode} (${orderDoc.customer_name}) - Tổng tiền: ${orderDoc.total}₫`,
+      details: { order_code: orderCode, total: orderDoc.total, items_count: orderDoc.items.length },
+      req
+    });
+
     res.json({ id: nextId, order_code: orderCode, ...orderDoc });
   } catch (err) {
     next(err);
@@ -222,7 +234,7 @@ router.post('/', validate(schemas.order), async (req, res, next) => {
 });
 
 // POST /api/orders/:id/cancel
-router.post('/:id/cancel', async (req, res, next) => {
+router.post('/:id/cancel', optionalAuth, async (req, res, next) => {
   try {
     const db = await getDatabase();
     const id = parseInt(req.params.id, 10);
@@ -256,6 +268,17 @@ router.post('/:id/cancel', async (req, res, next) => {
     }
 
     await db.collection('orders').updateOne({ id }, { $set: { status: 'cancelled' } });
+
+    await logAudit({
+      action: 'ORDER_CANCEL',
+      entity: 'orders',
+      entity_id: id,
+      user: req.user,
+      description: `Hủy đơn hàng #${id} (${order.order_code}) - Hoàn trả ${order.items?.length || 0} sản phẩm vào kho`,
+      details: { order_code: order.order_code, total: order.total },
+      req
+    });
+
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -263,7 +286,7 @@ router.post('/:id/cancel', async (req, res, next) => {
 });
 
 // POST /api/orders/return
-router.post('/return', async (req, res, next) => {
+router.post('/return', optionalAuth, async (req, res, next) => {
   try {
     const db = await getDatabase();
     const data = req.body;
@@ -348,6 +371,16 @@ router.post('/return', async (req, res, next) => {
         { $inc: { total_spent: -totalRefund }, $set: { updated_at: new Date() } }
       );
     }
+
+    await logAudit({
+      action: 'ORDER_RETURN',
+      entity: 'orders',
+      entity_id: order.id,
+      user: req.user,
+      description: `Đổi trả hàng ${returnCode} cho đơn ${order.order_code} - Hoàn trả: ${totalRefund}₫`,
+      details: { return_code: returnCode, refund_amount: totalRefund, items_count: returnItems.length },
+      req
+    });
 
     res.json({ id: returnId, return_code: returnCode, refund_amount: totalRefund, order_code: order.order_code });
   } catch (err) {

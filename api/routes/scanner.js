@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDatabase, getNextId } = require('../lib/db');
+const { broadcast } = require('../lib/realtime');
 
 let lastScannerPing = 0;
 
@@ -88,6 +89,16 @@ router.post('/scan-barcode', async (req, res, next) => {
         unit: product.unit || 'cái'
       };
     }
+
+    // T4: Broadcast real-time event
+    broadcast('scanner:barcode', {
+      id: event.id,
+      code,
+      format,
+      found: !!product,
+      product: productData,
+      created_at: event.created_at
+    });
 
     res.json({
       success: true,
@@ -297,9 +308,18 @@ router.post('/upload-product-photo', async (req, res, next) => {
       created_at: new Date()
     });
 
+    const filename = `photo-${Date.now()}.jpg`;
+
+    // T4: Broadcast real-time photo event
+    broadcast('scanner:photo', {
+      image,
+      filename,
+      created_at: new Date()
+    });
+
     res.json({
       success: true,
-      filename: `photo-${Date.now()}.jpg`,
+      filename,
       relativePath: image,
       url: image
     });

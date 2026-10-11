@@ -69,7 +69,7 @@
     return valid.length > 0 ? `?${valid.join('&')}` : '';
   }
 
-  // Scanner real-time event bridge for Web / Vercel
+  // Scanner real-time event bridge for Web / Vercel (T4: SSE & WS with polling fallback)
   const barcodeListeners = [];
   const scannerConnectedListeners = [];
   const scannerDisconnectedListeners = [];
@@ -79,12 +79,63 @@
   let lastPhotoTimestamp = Date.now() - 5000;
   let scannerPollingStarted = false;
   let isPhoneOnline = false;
+  let sseInitialized = false;
+
+  function initRealtimeBridge() {
+    if (sseInitialized) return;
+    sseInitialized = true;
+
+    if (typeof EventSource !== 'undefined') {
+      try {
+        const sse = new EventSource('/api/events/sse');
+        sse.addEventListener('scanner:barcode', (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            const { data } = payload;
+            if (data) {
+              if (!isPhoneOnline) {
+                isPhoneOnline = true;
+                scannerConnectedListeners.forEach(fn => fn({ ip: 'Điện thoại di động (Real-time)' }));
+              }
+              if (data.format === 'ADD_PRODUCT' && data.product) {
+                addProductListeners.forEach(fn => fn({ product: data.product }));
+              } else {
+                barcodeListeners.forEach(fn => fn({ code: data.code, format: data.format }));
+              }
+            }
+          } catch (_) {}
+        });
+
+        sse.addEventListener('scanner:photo', (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            if (payload.data?.image) {
+              productPhotoListeners.forEach(fn => fn({ image: payload.data.image, relativePath: payload.data.image }));
+            }
+          } catch (_) {}
+        });
+
+        sse.onopen = () => {
+          console.log('[Realtime] SSE stream connected successfully');
+        };
+
+        sse.onerror = () => {
+          // If SSE fails, fallback to polling
+          startScannerPolling();
+        };
+      } catch (_) {
+        startScannerPolling();
+      }
+    } else {
+      startScannerPolling();
+    }
+  }
 
   function startScannerPolling() {
     if (scannerPollingStarted) return;
     scannerPollingStarted = true;
 
-    // 1. Poll for barcode events from phone (Adaptive polling for P5)
+    // 1. Poll for barcode events from phone (Adaptive polling for P5 fallback)
     const processedEventIds = new Set();
     const pollEvents = async () => {
       try {
@@ -115,11 +166,11 @@
           }
         }
       } catch (_) {}
-      setTimeout(pollEvents, isPhoneOnline ? 1200 : 2500);
+      setTimeout(pollEvents, isPhoneOnline ? 1200 : 3000);
     };
     pollEvents();
 
-    // 2. Poll for photos sent from phone camera ONLY if listeners exist (P6 Optimization)
+    // 2. Poll for photos sent from phone camera ONLY if listeners exist
     setInterval(async () => {
       if (productPhotoListeners.length === 0) return;
       try {
@@ -147,7 +198,7 @@
           }
         }
       } catch (_) {}
-    }, 6000);
+    }, 8000);
   }
 
   window.api = {
@@ -159,7 +210,25 @@
     },
 
     // -- Products --
-    getProducts: (filters) => request(`/api/products${toQueryString(filters)}`),
+    getProducts: async (filters) => {
+      if (!navigator.onLine && window.offlineStore) {
+        const cached = await window.offlineStore.getCachedProducts();
+        if (cached && cached.length > 0) return cached;
+      }
+      try {
+        const res = await request(`/api/products${toQueryString(filters)}`);
+        if (Array.isArray(res) && window.offlineStore) {
+          window.offlineStore.cacheProducts(res);
+        }
+        return res;
+      } catch (err) {
+        if (window.offlineStore) {
+          const cached = await window.offlineStore.getCachedProducts();
+          if (cached && cached.length > 0) return cached;
+        }
+        throw err;
+      }
+    },
     getProduct: (id) => request(`/api/products/${id}`),
     getProductByBarcode: (barcode) => request(`/api/products/barcode/${encodeURIComponent(barcode)}`),
     addProduct: (data) => request('/api/products', { method: 'POST', body: JSON.stringify(data) }),
@@ -168,8 +237,8 @@
     batchSaveProducts: (products, updateExisting) =>
       request('/api/products/batch-save', { method: 'POST', body: JSON.stringify({ products, updateExisting }) }),
 
-    exportProductsExcel: async () => {
-      alert('Chức năng xuất Excel trên Web: Dữ liệu tải từ danh sách sản phẩm');
+    exportProductsExcel: async (filters) => {
+      window.open(`/api/export-excel/products${toQueryString(filters)}`, '_blank');
       return { success: true };
     },
     downloadProductTemplate: async () => {
@@ -194,7 +263,31 @@
     deleteCustomer: (id) => request(`/api/customers/${id}`, { method: 'DELETE' }),
 
     // -- Orders --
-    createOrder: (data) => request('/api/orders', { method: 'POST', body: JSON.stringify(data) }),
+    createOrder: async (data) => {
+      if (!navigator.onLine && window.offlineStore) {
+        const localId = await window.offlineStore.savePendingOrder(data);
+        return {
+          id: 'OFFLINE-' + localId,
+          order_code: 'OFFLINE-' + Date.now().toString().slice(-6),
+          is_offline: true,
+          ...data
+        };
+      }
+      try {
+        return await request('/api/orders', { method: 'POST', body: JSON.stringify(data) });
+      } catch (err) {
+        if (window.offlineStore && (!navigator.onLine || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError'))) {
+          const localId = await window.offlineStore.savePendingOrder(data);
+          return {
+            id: 'OFFLINE-' + localId,
+            order_code: 'OFFLINE-' + Date.now().toString().slice(-6),
+            is_offline: true,
+            ...data
+          };
+        }
+        throw err;
+      }
+    },
     getOrders: (filters) => request(`/api/orders${toQueryString(filters)}`),
     getOrder: (id) => request(`/api/orders/${id}`),
     cancelOrder: (id) => request(`/api/orders/${id}/cancel`, { method: 'POST' }),
@@ -286,16 +379,43 @@
     pickAndDecodeBarcode: () => Promise.resolve({ success: false }),
     saveProductImage: (fileData) => Promise.resolve({ success: true, relativePath: fileData }),
 
-    // -- Backup & Restore --
-    backup: () =>
-      Promise.resolve({
-        success: true,
-        message: 'Dữ liệu được lưu trữ tự động trên MongoDB Atlas Cloud.'
-      }),
-    restore: () =>
-      Promise.resolve({
-        success: true,
-        message: 'Dữ liệu MongoDB Atlas đang hoạt động bình thường.'
+    // -- Audit Logs (T2) --
+    getAuditLogs: (filters) => request(`/api/audit-logs${toQueryString(filters)}`),
+    getAuditActions: () => request('/api/audit-logs/actions'),
+
+    // -- Excel Export (T7) --
+    exportExcel: (type, params) => {
+      const url = `/api/export-excel/${type}${toQueryString(params)}`;
+      window.open(url, '_blank');
+      return { success: true };
+    },
+
+    // -- Backup & Restore (T3) --
+    backup: async () => {
+      try {
+        const res = await request('/api/backup/export');
+        if (res && res.data) {
+          const jsonStr = JSON.stringify(res, null, 2);
+          const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ShopPro_Backup_${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          return { success: true, message: `Đã xuất sao lưu thành công (${res.total_records || 'toàn bộ'} bản ghi)` };
+        }
+        return { success: false, message: 'Dữ liệu sao lưu không hợp lệ' };
+      } catch (err) {
+        return { success: false, message: err.message };
+      }
+    },
+    restore: (backupData) =>
+      request('/api/backup/restore', {
+        method: 'POST',
+        body: JSON.stringify(backupData)
       }),
 
     // -- Printing --

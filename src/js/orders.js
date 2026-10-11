@@ -25,6 +25,9 @@
           <button class="btn btn-outline btn-sm" onclick="pageModules.orders.refresh()">
             ${ICONS.refresh} Làm mới
           </button>
+          <button class="btn btn-success btn-sm" onclick="pageModules.orders.exportExcel()">
+            📥 Xuất Excel
+          </button>
           <button class="btn btn-warning" onclick="pageModules.orders.openReturnModal()">
             🔄 Đổi Trả Hàng
           </button>
@@ -218,6 +221,9 @@
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeModal()">Đóng</button>
+            <button class="btn btn-outline" onclick="pageModules.orders.exportPdfReceipt(${order.id})">
+              📄 Xuất PDF
+            </button>
             <button class="btn btn-primary" onclick="pageModules.orders.printOrder(${order.id})">
               ${ICONS.printer} In hóa đơn
             </button>
@@ -607,10 +613,38 @@
   function onDateFrom(v) { dateFrom = v; loadOrders(); }
   function onDateTo(v) { dateTo = v; loadOrders(); }
 
-  async function refresh() { await loadOrders(); }
+  function exportExcel() {
+    const params = {};
+    if (filterStatus) params.status = filterStatus;
+    if (filterPayment) params.payment_method = filterPayment;
+    if (dateFrom) params.from = dateFrom;
+    if (dateTo) params.to = dateTo;
+    if (searchQuery) params.search = searchQuery;
+    if (api && typeof api.exportExcel === 'function') {
+      api.exportExcel('orders', params);
+      showToast('success', 'Đang tải file Excel đơn hàng...');
+    } else {
+      window.open(`/api/export-excel/orders?${new URLSearchParams(params).toString()}`, '_blank');
+    }
+  }
+
+  async function exportPdfReceipt(id) {
+    try {
+      const order = await api.getOrder(id);
+      if (!order) return;
+      if (window.pdfExporter) {
+        window.pdfExporter.exportOrderReceiptPdf(order);
+        showToast('info', 'Đã khởi tạo bản in PDF hóa đơn');
+      } else {
+        printOrder(id);
+      }
+    } catch (err) {
+      showToast('error', 'Lỗi xuất PDF', err.message);
+    }
+  }
 
   registerPage('orders', {
-    render, init, viewOrder, cancelOrder, printOrder,
+    render, init, viewOrder, cancelOrder, printOrder, exportExcel, exportPdfReceipt,
     openReturnModal, searchOrderForReturn, recalcReturnTotal, submitOrderReturn,
     onSearch, onFilterStatus, onFilterPayment, onDateFrom, onDateTo, refresh
   });

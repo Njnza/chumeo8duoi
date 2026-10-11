@@ -15,6 +15,9 @@
           <button class="btn btn-outline btn-sm" onclick="pageModules.customers.refresh()">
             ${ICONS.refresh} Làm mới
           </button>
+          <button class="btn btn-success btn-sm" onclick="pageModules.customers.exportExcel()">
+            📥 Xuất Excel
+          </button>
           <button class="btn btn-primary" onclick="pageModules.customers.openAdd()">
             ${ICONS.plus} Thêm Khách Hàng
           </button>
@@ -490,8 +493,17 @@
   const onSearch = debounce((v) => { searchQuery = v; loadCustomers(); }, 300);
   async function refresh() { await loadCustomers(); }
 
+  function exportExcel() {
+    if (api && typeof api.exportExcel === 'function') {
+      api.exportExcel('customers', { search: searchQuery });
+      showToast('success', 'Đang tải file Excel danh sách khách hàng...');
+    } else {
+      window.open(`/api/export-excel/customers?search=${encodeURIComponent(searchQuery || '')}`, '_blank');
+    }
+  }
+
   registerPage('customers', {
-    render, init, openAdd, openEdit, save, deleteCustomer, onSearch, refresh,
+    render, init, openAdd, openEdit, save, deleteCustomer, onSearch, refresh, exportExcel,
     onTierModeChange, onToggleCustomThresholds, resetCustomThresholds
   });
 })();

@@ -1,19 +1,36 @@
 {
-  "name": "ShopPro Scanner - Quét Mã Vạch Di Động",
-  "short_name": "Shop Scanner",
-  "description": "Máy quét mã vạch và kiểm kho di động kết nối tức thì với POS ShopPro",
+  "name": "ShopPro POS - Phần Mềm Bán Hàng",
+  "short_name": "ShopPro POS",
+  "description": "Phần mềm quản lý bán hàng POS đa nền tảng (Desktop & Web/PWA)",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "theme_color": "#364e68",
+  "categories": ["business", "finance", "productivity"],
   "icons": [
     {
       "src": "/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Bán Hàng POS",
+      "short_name": "Bán Hàng",
+      "description": "Mở màn hình thu ngân bán hàng",
+      "url": "/#pos",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "Máy Quét Mã Vạch",
+      "short_name": "Quét Mã",
+      "description": "Mở máy quét mã vạch bằng camera điện thoại",
+      "url": "/scanner.html",
+      "icons": [{ "src": "/icon.svg", "sizes": "any" }]
     }
   ]
 }

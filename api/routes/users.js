@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { getDatabase, getNextId } = require('../lib/db');
 const { hashPin, verifyPin } = require('../lib/helpers');
-const { generateToken, optionalAuth } = require('../middleware/auth');
+const { generateToken, optionalAuth, authenticateToken } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validate');
+const { logAudit } = require('../lib/audit');
 const {
   getClientIp,
   checkLoginLockout,
@@ -20,6 +21,18 @@ router.get('/', async (req, res, next) => {
       .sort({ role: 1, id: 1 })
       .toArray();
     res.json(users);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /api/users/me (T1: Get current authenticated user profile)
+router.get('/me', authenticateToken, async (req, res, next) => {
+  try {
+    const db = await getDatabase();
+    const user = await db.collection('users').findOne({ id: req.user.id }, { projection: { pin: 0 } });
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
+    res.json(user);
   } catch (err) {
     next(err);
   }
@@ -50,7 +63,7 @@ router.get('/:id', async (req, res, next) => {
 });
 
 // POST /api/users
-router.post('/', validate(schemas.user), async (req, res, next) => {
+router.post('/', optionalAuth, validate(schemas.user), async (req, res, next) => {
   try {
     const db = await getDatabase();
     const data = req.body;
@@ -67,6 +80,17 @@ router.post('/', validate(schemas.user), async (req, res, next) => {
     };
     await db.collection('users').insertOne(newUser);
     const { pin: _p, ...safe } = newUser;
+
+    await logAudit({
+      action: 'USER_CREATE',
+      entity: 'users',
+      entity_id: nextId,
+      user: req.user,
+      description: `Tạo tài khoản người dùng mới: ${safe.name} (${safe.username}) - Vai trò: ${safe.role}`,
+      details: safe,
+      req
+    });
+
     res.json(safe);
   } catch (err) {
     next(err);
@@ -74,7 +98,7 @@ router.post('/', validate(schemas.user), async (req, res, next) => {
 });
 
 // PUT /api/users/:id
-router.put('/:id', validate(schemas.user), async (req, res, next) => {
+router.put('/:id', optionalAuth, validate(schemas.user), async (req, res, next) => {
   try {
     const db = await getDatabase();
     const id = parseInt(req.params.id, 10);
@@ -89,6 +113,17 @@ router.put('/:id', validate(schemas.user), async (req, res, next) => {
 
     await db.collection('users').updateOne({ id }, { $set: updateDoc });
     const updated = await db.collection('users').findOne({ id }, { projection: { pin: 0 } });
+
+    await logAudit({
+      action: 'USER_UPDATE',
+      entity: 'users',
+      entity_id: id,
+      user: req.user,
+      description: `Cập nhật thông tin người dùng #${id}: ${updated?.name}`,
+      details: updateDoc,
+      req
+    });
+
     res.json(updated);
   } catch (err) {
     next(err);
@@ -98,7 +133,6 @@ router.put('/:id', validate(schemas.user), async (req, res, next) => {
 // DELETE /api/users/:id
 router.delete('/:id', optionalAuth, async (req, res, next) => {
   try {
-    // Role check if authenticated
     if (req.user && req.user.role === 'staff') {
       return res.status(403).json({ error: 'Nhân viên không có quyền xóa tài khoản người dùng.' });
     }
@@ -112,6 +146,17 @@ router.delete('/:id', optionalAuth, async (req, res, next) => {
       if (ownerCount <= 1) return res.status(400).json({ error: 'Không thể xóa tài khoản Chủ Shop duy nhất' });
     }
     await db.collection('users').deleteOne({ id });
+
+    await logAudit({
+      action: 'USER_DELETE',
+      entity: 'users',
+      entity_id: id,
+      user: req.user,
+      description: `Xóa tài khoản người dùng: ${user.name} (${user.username})`,
+      details: { id: user.id, username: user.username, role: user.role },
+      req
+    });
+
     res.json({ success: true });
   } catch (err) {
     next(err);
@@ -128,6 +173,13 @@ router.post('/authenticate', async (req, res, next) => {
     // 1. Check if client is locked out
     const lockout = await checkLoginLockout(clientIp);
     if (lockout.locked) {
+      await logAudit({
+        action: 'USER_LOGIN_BLOCKED',
+        entity: 'auth',
+        entity_id: username || usernameOrPin || '',
+        description: `Đăng nhập bị chặn do nhập sai quá 5 lần (IP: ${clientIp})`,
+        req
+      });
       return res.status(429).json({
         error: `Bạn đã nhập sai quá 5 lần! Để đảm bảo an toàn, hệ thống tạm khóa ${lockout.retryAfter} giây.`,
         locked: true,
@@ -178,6 +230,14 @@ router.post('/authenticate', async (req, res, next) => {
     // Check result
     if (!authenticatedUser) {
       const failInfo = await recordLoginFailure(clientIp);
+      await logAudit({
+        action: 'USER_LOGIN_FAILED',
+        entity: 'auth',
+        entity_id: username || usernameOrPin || '',
+        description: `Đăng nhập thất bại (Còn ${failInfo.remainingAttempts} lần thử, IP: ${clientIp})`,
+        req
+      });
+
       if (failInfo.locked) {
         return res.status(429).json({
           error: `Bạn đã nhập sai quá 5 lần! Để đảm bảo an toàn, hệ thống tạm khóa ${failInfo.retryAfter} giây.`,
@@ -198,10 +258,50 @@ router.post('/authenticate', async (req, res, next) => {
     
     // S3: Issue JWT Token on authentication
     const token = generateToken(safeUser);
+
+    await logAudit({
+      action: 'USER_LOGIN',
+      entity: 'auth',
+      entity_id: safeUser.id,
+      user: safeUser,
+      description: `Đăng nhập thành công: ${safeUser.name} (${safeUser.username}) - ${safeUser.role}`,
+      req
+    });
+
     res.json({ ...safeUser, token });
   } catch (err) {
     next(err);
   }
+});
+
+// POST /api/users/refresh-token (T1: Refresh Token)
+router.post('/refresh-token', authenticateToken, async (req, res, next) => {
+  try {
+    const db = await getDatabase();
+    const user = await db.collection('users').findOne({ id: req.user.id }, { projection: { pin: 0 } });
+    if (!user || user.status !== 'active') {
+      return res.status(401).json({ error: 'Tài khoản không tồn tại hoặc đã bị khóa' });
+    }
+    const token = generateToken(user);
+    res.json({ token, user });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/users/logout (T1: Logout & Audit)
+router.post('/logout', optionalAuth, async (req, res) => {
+  if (req.user) {
+    await logAudit({
+      action: 'USER_LOGOUT',
+      entity: 'auth',
+      entity_id: req.user.id,
+      user: req.user,
+      description: `Người dùng ${req.user.name} (${req.user.username}) đã đăng xuất`,
+      req
+    });
+  }
+  res.json({ success: true, message: 'Đã đăng xuất an toàn' });
 });
 
 // POST /api/users/verify-pin

@@ -60,6 +60,30 @@
                   <span class="text-secondary" style="font-size:12px;" id="themeColorStatus">Đang dùng: <strong>#364e68</strong></span>
                 </div>
               </div>
+            <!-- Multi-Language & Multi-Currency (T8 & T9) -->
+            <div class="settings-section">
+              <h3>🌍 Ngôn Ngữ & Tiền Tệ (i18n & Multi-Currency)</h3>
+              <p class="text-secondary mb-md" style="font-size:12px;">
+                Tùy chỉnh ngôn ngữ hiển thị và đơn vị tiền tệ giao dịch trên hệ thống bán hàng POS.
+              </p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">NGÔN NGỮ HIỂN THỊ</label>
+                  <select class="form-control" id="sAppLanguage" onchange="pageModules.settings.onLanguageChange(this.value)">
+                    <option value="vi">🇻🇳 Tiếng Việt</option>
+                    <option value="en">🇬🇧 English</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">ĐƠN VỊ TIỀN TỆ</label>
+                  <select class="form-control" id="sAppCurrency" onchange="pageModules.settings.onCurrencyChange(this.value)">
+                    <option value="VND">₫ VNĐ (Việt Nam Đồng)</option>
+                    <option value="USD">$ USD (Đô la Mỹ)</option>
+                    <option value="EUR">€ EUR (Euro)</option>
+                    <option value="JPY">¥ JPY (Yên Nhật)</option>
+                  </select>
+                </div>
+              </div>
             </div>
 
             <!-- Shop Info -->
@@ -250,16 +274,17 @@
 
             <!-- Backup -->
             <div class="settings-section">
-              <h3>💾 Sao Lưu & Phục Hồi</h3>
+              <h3>💾 Sao Lưu & Phục Hồi (Full Database Backup)</h3>
+              <input type="file" id="sRestoreFileInput" accept=".json" style="display:none;" onchange="pageModules.settings.onRestoreFileSelected(event)">
               <div class="flex gap-md">
                 <button class="btn btn-outline" onclick="pageModules.settings.doBackup()" style="flex:1;">
-                  ${ICONS.download} Sao lưu
+                  ${ICONS.download} Sao lưu JSON
                 </button>
                 <button class="btn btn-warning" onclick="pageModules.settings.doRestore()" style="flex:1;">
-                  ${ICONS.upload} Phục hồi
+                  ${ICONS.upload} Phục hồi JSON
                 </button>
               </div>
-              <div class="form-help mt-md">Sao lưu toàn bộ database (sản phẩm, đơn hàng, khách hàng...)</div>
+              <div class="form-help mt-md">Sao lưu toàn bộ cơ sở dữ liệu ra file JSON an toàn và phục hồi toàn diện.</div>
             </div>
 
             <!-- Auto-Update (MOI-06) -->
@@ -401,6 +426,47 @@
               </tbody>
             </table>
           </div>
+        <!-- Audit Log (Nhật ký hoạt động hệ thống - T2) -->
+        <div class="settings-section mt-xl">
+          <div class="flex justify-between items-center mb-md">
+            <div>
+              <h3>📋 Nhật Ký Hoạt Động (Audit Log)</h3>
+              <p class="text-secondary" style="font-size:12px; margin-top:2px;">
+                Ghi nhận minh bạch lịch sử vận hành (ai làm gì, thời điểm, IP, thao tác tài chính, xuất sao lưu...)
+              </p>
+            </div>
+            <div class="flex gap-sm">
+              <select class="form-control" id="sAuditActionFilter" style="width:190px; font-size:12px;" onchange="pageModules.settings.loadAuditLogs()">
+                <option value="">Tất cả thao tác</option>
+                <option value="user:login">Đăng nhập</option>
+                <option value="user:login_failed">Đăng nhập thất bại</option>
+                <option value="order:create">Tạo đơn hàng</option>
+                <option value="order:cancel">Hủy đơn hàng</option>
+                <option value="order:return">Đổi trả hàng</option>
+                <option value="backup:restore">Khôi phục dữ liệu</option>
+                <option value="user:create">Tạo tài khoản</option>
+              </select>
+              <button type="button" class="btn btn-outline btn-sm" onclick="pageModules.settings.loadAuditLogs()">
+                🔄 Làm Mới
+              </button>
+            </div>
+          </div>
+          <div class="data-table-wrapper" style="max-height:360px; overflow-y:auto;">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th style="width:140px;">Thời gian</th>
+                  <th style="width:140px;">Tài khoản</th>
+                  <th style="width:140px;">Hành động</th>
+                  <th>Chi tiết</th>
+                  <th style="width:110px;">Địa chỉ IP</th>
+                </tr>
+              </thead>
+              <tbody id="auditLogsTableBody">
+                <tr><td colspan="5" class="text-center text-muted" style="padding:20px;">Đang tải nhật ký hoạt động...</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <!-- App info -->
@@ -509,6 +575,7 @@
       await loadMemberTiers();
       await loadUsersList();
       await loadRecentLogs();
+      await loadAuditLogs();
       await renderPluginsList();
     } catch (err) {
       showToast('error', 'Lỗi tải cài đặt', err.message);
@@ -611,6 +678,11 @@
     const qrImg = settings.bank_qr_image || 'images/bank_qr.png';
     setValue('sBankQrImage', qrImg);
     updateBankQrPreview(qrImg);
+
+    if (window.i18n) {
+      setValue('sAppLanguage', window.i18n.getLanguage());
+      setValue('sAppCurrency', window.i18n.getCurrency());
+    }
   }
 
   function updateBankQrPreview(src) {
@@ -1095,15 +1167,130 @@
     }
   }
 
-  async function openPluginsFolder() {
-    if (window.pluginBridge) {
-      await window.pluginBridge.openPluginsFolder();
+  async function doBackup() {
+    try {
+      showToast('info', 'Đang tạo bản sao lưu...', 'Vui lòng chờ trong giây lát');
+      const res = await api.backup();
+      if (res && res.success) {
+        showToast('success', 'Sao lưu hoàn tất', res.message);
+      } else {
+        showToast('error', 'Lỗi sao lưu', res?.message || 'Không thể xuất file sao lưu');
+      }
+    } catch (err) {
+      showToast('error', 'Lỗi sao lưu', err.message);
+    }
+  }
+
+  function doRestore() {
+    const input = document.getElementById('sRestoreFileInput');
+    if (input) {
+      input.value = '';
+      input.click();
+    }
+  }
+
+  async function onRestoreFileSelected(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const backupData = JSON.parse(e.target.result);
+        if (!backupData.data) {
+          throw new Error('File sao lưu không đúng định dạng chuẩn ShopPro (thiếu trường data).');
+        }
+
+        const counts = backupData.counts || {};
+        const countSummary = Object.entries(counts).map(([k, v]) => `${k}: ${v}`).join(', ');
+        const confirmMsg = `Bạn có chắc muốn phục hồi dữ liệu từ bản sao lưu này?\n\n- Ngày tạo: ${backupData.created_at || 'N/A'}\n- Dữ liệu: ${countSummary || 'Đầy đủ'}\n\nLưu ý: Dữ liệu hiện tại sẽ được cập nhật hoặc bổ sung từ bản sao lưu.`;
+
+        if (!confirm(confirmMsg)) return;
+
+        showToast('info', 'Đang khôi phục...', 'Đang ghi dữ liệu vào database...');
+        const res = await api.restore(backupData);
+        if (res && res.success) {
+          showToast('success', 'Khôi phục thành công!', res.message);
+          setTimeout(() => window.location.reload(), 1500);
+        } else {
+          showToast('error', 'Khôi phục thất bại', res?.error || 'Lỗi không xác định');
+        }
+      } catch (err) {
+        showToast('error', 'Lỗi đọc file sao lưu', err.message);
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  async function loadAuditLogs() {
+    const tbody = document.getElementById('auditLogsTableBody');
+    if (!tbody) return;
+
+    try {
+      const action = document.getElementById('sAuditActionFilter')?.value || '';
+      const params = { limit: 50 };
+      if (action) params.action = action;
+
+      const logs = await api.getAuditLogs(params);
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:20px;">Chưa có bản ghi hoạt động nào</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = logs.map(l => {
+        const timeStr = l.created_at ? new Date(l.created_at).toLocaleString('vi-VN') : '—';
+        let actionBadge = `<span class="badge badge-info">${escapeHtml(l.action)}</span>`;
+        if (l.action.includes('failed') || l.action.includes('cancel')) {
+          actionBadge = `<span class="badge badge-danger">${escapeHtml(l.action)}</span>`;
+        } else if (l.action.includes('login') || l.action.includes('create')) {
+          actionBadge = `<span class="badge badge-success">${escapeHtml(l.action)}</span>`;
+        } else if (l.action.includes('restore') || l.action.includes('return')) {
+          actionBadge = `<span class="badge badge-warning">${escapeHtml(l.action)}</span>`;
+        }
+
+        let detailStr = '';
+        if (l.details) {
+          if (typeof l.details === 'object') {
+            detailStr = Object.entries(l.details).map(([k, v]) => `${k}: <strong>${v}</strong>`).join(' | ');
+          } else {
+            detailStr = String(l.details);
+          }
+        }
+
+        return `
+          <tr>
+            <td style="font-size:11.5px; white-space:nowrap;">${timeStr}</td>
+            <td><strong>${escapeHtml(l.username || 'System')}</strong> <span class="text-secondary" style="font-size:10px;">(${escapeHtml(l.role || '—')})</span></td>
+            <td>${actionBadge}</td>
+            <td style="font-size:12px;">${detailStr || '—'}</td>
+            <td style="font-size:11px; font-family:monospace;">${escapeHtml(l.ip || '127.0.0.1')}</td>
+          </tr>
+        `;
+      }).join('');
+    } catch (err) {
+      console.warn('[AuditLogs] Error loading logs:', err);
+      tbody.innerHTML = `<tr><td colspan="5" class="text-danger text-center" style="padding:15px;">Lỗi tải nhật ký: ${escapeHtml(err.message)}</td></tr>`;
+    }
+  }
+
+  function onLanguageChange(lang) {
+    if (window.i18n) {
+      window.i18n.setLanguage(lang);
+      showToast('success', 'Đổi ngôn ngữ thành công', `Hệ thống đã chuyển sang ${lang === 'vi' ? 'Tiếng Việt' : 'English'}`);
+    }
+  }
+
+  function onCurrencyChange(curr) {
+    if (window.i18n) {
+      window.i18n.setCurrency(curr);
+      showToast('success', 'Đổi tiền tệ thành công', `Đơn vị hiển thị: ${curr}`);
+      if (typeof window.renderCart === 'function') window.renderCart();
     }
   }
 
   registerPage('settings', {
-    render, init, saveAll, doBackup, doRestore, addTierRow, removeTierRow,
-    loadUsersList, openAddUserModal, openEditUserModal, saveUserForm, deleteUserAccount,
+    render, init, saveAll, doBackup, doRestore, onRestoreFileSelected, loadAuditLogs, onLanguageChange, onCurrencyChange,
+    addTierRow, removeTierRow, loadUsersList, openAddUserModal, openEditUserModal, saveUserForm, deleteUserAccount,
     renderThemePalettes, selectThemePreset, onCustomColorInput, onHexInputChange, resetDefaultTheme, setMode,
     loadRecentLogs, openLogFolder, clearTodayLog, renderPluginsList, onTogglePlugin, openPluginsFolder,
     onBankQrFileSelected, removeBankQrImage, updateBankQrPreview
