@@ -4,36 +4,35 @@
    Enables offline-first selling, instant asset caching, and notifications
    ============================================ */
 
-const CACHE_NAME = 'shoppro-pos-v2';
+const CACHE_NAME = 'shoppro-pos-v4';
 const CORE_ASSETS = [
-  '/',
-  '/index.html',
-  '/css/app.css',
-  '/js/app.js',
-  '/js/api-client.js',
-  '/js/pos.js',
-  '/js/products.js',
-  '/js/orders.js',
-  '/js/customers.js',
-  '/js/reports.js',
-  '/js/settings.js',
-  '/js/offline-store.js',
-  '/js/i18n.js',
-  '/js/pdf-exporter.js',
-  '/manifest.json',
-  '/icon.svg',
-  '/scanner-client.css',
-  '/scanner-client.js'
+  './',
+  './index.html',
+  './css/app.css',
+  './js/app.js?v=2.2.0',
+  './js/api-client.js?v=2.2.0',
+  './js/pos.js?v=2.2.0',
+  './js/products.js?v=2.2.0',
+  './js/orders.js?v=2.2.0',
+  './js/customers.js?v=2.2.0',
+  './js/reports.js?v=2.2.0',
+  './js/settings.js?v=2.2.0',
+  './js/offline-store.js?v=2.2.0',
+  './js/i18n.js?v=2.2.0',
+  './js/pdf-exporter.js?v=2.2.0',
+  './manifest.json',
+  './icon.svg'
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Pre-caching ShopPro POS shell assets');
+      console.log('[SW] Pre-caching ShopPro POS shell assets (v4)');
       return cache.addAll(CORE_ASSETS).catch((err) => {
         console.warn('[SW] Some assets failed to pre-cache (non-critical):', err);
       });
-    }).then(() => self.skipWaiting())
+    })
   );
 });
 
@@ -52,6 +51,12 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'skipWaiting') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -64,21 +69,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-First for HTML navigation
-  if (event.request.mode === 'navigate' || url.pathname === '/' || url.pathname.endsWith('.html')) {
+  // Network-First for HTML navigation and JS files (ensures updates apply immediately)
+  if (
+    event.request.mode === 'navigate' ||
+    url.pathname.endsWith('.html') ||
+    url.pathname.endsWith('.js') ||
+    url.pathname === '/'
+  ) {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const cloned = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          if (response && response.status === 200) {
+            const cloned = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+          }
           return response;
         })
-        .catch(() => caches.match('/index.html') || caches.match(event.request))
+        .catch(() => caches.match(event.request) || caches.match('./index.html') || caches.match('/index.html'))
     );
     return;
   }
 
-  // Stale-While-Revalidate for CSS, JS, fonts, images
+  // Stale-While-Revalidate for CSS, fonts, images
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)

@@ -149,6 +149,7 @@ applyThemeMode(getThemeMode(), false);
 // ==================== STATE ====================
 let currentPage = 'pos';
 const pageModules = {};
+window.pageModules = pageModules;
 
 // ==================== ROUTER ====================
 function _doNavigateTo(pageName) {
@@ -166,23 +167,62 @@ function _doNavigateTo(pageName) {
 
   // Render page
   const content = document.getElementById('contentArea');
+  if (!content) return;
   content.innerHTML = '';
 
   const pageDiv = document.createElement('div');
   pageDiv.className = 'page active';
   pageDiv.id = `page-${pageName}`;
 
-  // Call page render function
-  if (pageModules[pageName] && typeof pageModules[pageName].render === 'function') {
-    pageDiv.innerHTML = pageModules[pageName].render();
-    content.appendChild(pageDiv);
+  // Call page render function with safety boundary
+  const mod = pageModules[pageName];
+  if (mod && typeof mod.render === 'function') {
+    try {
+      pageDiv.innerHTML = mod.render();
+      content.appendChild(pageDiv);
 
-    // Call init after DOM is ready
-    if (typeof pageModules[pageName].init === 'function') {
-      setTimeout(() => pageModules[pageName].init(), 0);
+      // Call init after DOM is ready
+      if (typeof mod.init === 'function') {
+        setTimeout(async () => {
+          try {
+            await mod.init();
+          } catch (initErr) {
+            console.error(`[Router] Error initializing module "${pageName}":`, initErr);
+            showToast('error', `Lỗi tải dữ liệu ${pageName}`, initErr.message || String(initErr));
+          }
+        }, 0);
+      }
+    } catch (renderErr) {
+      console.error(`[Router] Error rendering module "${pageName}":`, renderErr);
+      pageDiv.innerHTML = `
+        <div class="empty-state" style="padding:40px; text-align:center;">
+          <h3>⚠️ Lỗi hiển thị module "${pageName}"</h3>
+          <p class="text-danger" style="margin-top:8px;">${escapeHtml(renderErr.message)}</p>
+          <button class="btn btn-primary btn-sm" style="margin-top:16px;" onclick="window.location.reload(true)">
+            🔄 Tải Lại Trang
+          </button>
+        </div>
+      `;
+      content.appendChild(pageDiv);
     }
   } else {
-    pageDiv.innerHTML = `<div class="empty-state"><h3>Module "${pageName}" chưa sẵn sàng</h3></div>`;
+    console.warn(`[Router] Module "${pageName}" is not registered in pageModules:`, Object.keys(pageModules));
+    pageDiv.innerHTML = `
+      <div class="empty-state" style="padding:40px; text-align:center;">
+        <h3>Module "${pageName}" chưa sẵn sàng</h3>
+        <p class="text-secondary" style="font-size:12px; margin-top:8px;">
+          Trình duyệt có thể đang lưu tệp JavaScript phiên bản cũ trong bộ nhớ đệm. Vui lòng bấm nút bên dưới để dọn sạch cache và tải lại:
+        </p>
+        <div style="margin-top:16px; display:flex; justify-content:center; gap:10px;">
+          <button class="btn btn-primary btn-sm" onclick="if('caches' in window){caches.keys().then(k=>Promise.all(k.map(x=>caches.delete(x)))).then(()=>window.location.reload(true));}else{window.location.reload(true);}">
+            🧹 Xóa Cache & Tải Lại Ngay
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="_doNavigateTo('pos')">
+            🛒 Về Trang Bán Hàng
+          </button>
+        </div>
+      </div>
+    `;
     content.appendChild(pageDiv);
   }
 }
@@ -204,10 +244,12 @@ function navigateTo(pageName) {
   }
   _doNavigateTo(pageName);
 }
+window.navigateTo = navigateTo;
 
 function registerPage(name, module) {
   pageModules[name] = module;
 }
+window.registerPage = registerPage;
 
 // ==================== USER & AUTH STATE ====================
 let currentUser = null;

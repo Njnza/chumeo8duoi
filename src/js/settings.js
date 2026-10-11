@@ -60,6 +60,8 @@
                   <span class="text-secondary" style="font-size:12px;" id="themeColorStatus">Đang dùng: <strong>#364e68</strong></span>
                 </div>
               </div>
+            </div>
+
             <!-- Multi-Language & Multi-Currency (T8 & T9) -->
             <div class="settings-section">
               <h3>🌍 Ngôn Ngữ & Tiền Tệ (i18n & Multi-Currency)</h3>
