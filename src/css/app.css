@@ -3269,5 +3269,51 @@ textarea.form-control {
   border: 1px solid var(--border);
 }
 
+/* ==================== SKELETON LOADING (U1) ==================== */
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-secondary, #f0f2f5) 25%, var(--bg-hover, #e4e7eb) 50%, var(--bg-secondary, #f0f2f5) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.skeleton-text.short {
+  width: 60%;
+}
+
+.skeleton-card {
+  height: 110px;
+  border-radius: 8px;
+}
+
+.skeleton-table-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.skeleton-cell {
+  height: 16px;
+  flex: 1;
+}
+
+
 
 

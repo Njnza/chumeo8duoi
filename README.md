@@ -56,20 +56,23 @@ npm test
 └── uploads/             # Product images
 ```
 
-## Database
+## Kiến Trúc Lưu Trữ & Cơ Sở Dữ Liệu (Dual-Mode Architecture)
 
-SQLite local (better-sqlite3 native binding + WAL mode) — hiệu năng vượt trội gấp 5-10 lần, dữ liệu lưu an toàn tại `%APPDATA%/shoppro-desktop/shoppro.db`.
+Ứng dụng hỗ trợ 2 môi trường hoạt động linh hoạt:
+1. **Desktop Mode (Electron)**: Sử dụng **SQLite local** (`database/db.js` với `better-sqlite3` native WAL mode hoặc `sql.js` in-memory fallback), dữ liệu lưu trữ offline tại `%APPDATA%/shoppro-desktop/shoppro.db`.
+2. **Cloud / Web Mode (Vercel & Browser)**: Sử dụng **MongoDB Atlas** (`api/lib/db.js`), triển khai serverless trên Vercel với cấu trúc API modules (`api/routes/`), hỗ trợ điện thoại quét mã vạch qua Cloud Bridge.
 
 ## Tech Stack
 
 | Thành phần | Công nghệ |
 |---|---|
 | Desktop Framework | Electron 33.x |
-| Database Engine | better-sqlite3 (Native WAL mode) |
-| Real-time Comm | WebSocket Server (ws) |
+| Cloud / Web API | Express 5.x (Router Modules, JWT Auth, Input Validation) |
+| Database Engine | SQLite (Desktop offline) & MongoDB Atlas (Cloud serverless) |
+| Real-time Comm | WebSocket Server (Desktop) + Cloud Polling Bridge (Web/Phone) |
 | Phone Scanner | html5-qrcode + Quagga2 + BarcodeDetector |
 | Barcode Engine | zxing-wasm multi-format |
-| Biểu đồ & Analytics | Chart.js 4.x + Thuật toán ABC Pareto |
+| Biểu đồ & Analytics | Chart.js 4.x + MongoDB Aggregation + ABC Pareto |
 | Excel Processing | SheetJS (xlsx) |
 | QR Code & VietQR | qrcode + chuẩn NAPAS/EMVCo |
 

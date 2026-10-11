@@ -12,11 +12,27 @@
 
   console.log('[ShopPro] Running in Web environment (Vercel / Browser)');
 
+  function getAuthToken() {
+    const token = sessionStorage.getItem('shoppro_token') || localStorage.getItem('shoppro_token');
+    if (token) return token;
+    try {
+      const userStr = sessionStorage.getItem('shoppro_user') || localStorage.getItem('shoppro_user_remembered');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        return u?.token || null;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   async function request(url, options = {}) {
     try {
+      const token = getAuthToken();
+      const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
       const res = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          ...authHeaders,
           ...(options.headers || {})
         },
         ...options
@@ -68,9 +84,9 @@
     if (scannerPollingStarted) return;
     scannerPollingStarted = true;
 
-    // 1. Poll for barcode events from phone
+    // 1. Poll for barcode events from phone (Adaptive polling for P5)
     const processedEventIds = new Set();
-    setInterval(async () => {
+    const pollEvents = async () => {
       try {
         const events = await request(`/api/scanner/events?since=${lastEventTimestamp}`);
         if (Array.isArray(events) && events.length > 0) {
@@ -99,10 +115,13 @@
           }
         }
       } catch (_) {}
-    }, 1200);
+      setTimeout(pollEvents, isPhoneOnline ? 1200 : 2500);
+    };
+    pollEvents();
 
-    // 2. Poll for photos sent from phone camera
+    // 2. Poll for photos sent from phone camera ONLY if listeners exist (P6 Optimization)
     setInterval(async () => {
+      if (productPhotoListeners.length === 0) return;
       try {
         const photo = await request(`/api/scanner/latest-photo?since=${lastPhotoTimestamp}`);
         if (photo && photo.image) {

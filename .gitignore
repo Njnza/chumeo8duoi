@@ -10,6 +10,7 @@ dist/
 # Environment
 .env
 .env.*
+!.env.example
 
 # SSL certificates (auto-generated per machine)
 certs/*.pem

@@ -470,6 +470,9 @@ async function submitStaffLogin() {
 
 function onLoginSuccess(user) {
   currentUser = user;
+  if (user && user.token) {
+    sessionStorage.setItem('shoppro_token', user.token);
+  }
   hideLoginScreen();
   updateUserUI();
   updateShiftStatusBadge();
@@ -486,7 +489,9 @@ function logoutUser() {
   closeUserMenu();
   closeModal();
   sessionStorage.removeItem('shoppro_user');
+  sessionStorage.removeItem('shoppro_token');
   localStorage.removeItem('shoppro_user_remembered');
+  localStorage.removeItem('shoppro_token');
   currentUser = null;
   selectedQuickUser = null;
   showLoginScreen();
@@ -598,7 +603,7 @@ async function submitUnlock() {
     let ok = false;
     if (currentUser) {
       try {
-        const auth = await api.authenticateUser(currentUser.id, currentLockPin);
+        const auth = await api.authenticateUser({ userId: currentUser.id, pin: currentLockPin });
         if (auth) ok = true;
       } catch (_) {}
     }
@@ -876,8 +881,21 @@ function updateClock() {
   }
 }
 
-// ==================== TOAST ====================
+// ==================== TOAST (U4: Deduplication) ====================
+const recentToastsMap = new Map();
+
 function showToast(type, title, message = '', duration = 3000) {
+  const toastKey = `${type}:${title}:${message}`;
+  const now = Date.now();
+  if (recentToastsMap.has(toastKey) && (now - recentToastsMap.get(toastKey)) < 2000) {
+    return; // Suppress duplicate toast within 2 seconds
+  }
+  recentToastsMap.set(toastKey, now);
+  if (recentToastsMap.size > 30) {
+    const oldestKey = recentToastsMap.keys().next().value;
+    recentToastsMap.delete(oldestKey);
+  }
+
   const container = document.getElementById('toastContainer');
   const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
 
@@ -1028,12 +1046,6 @@ function formatDateShort(dateStr) {
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit', month: '2-digit', year: 'numeric'
   }).format(date);
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-  return String(text).replace(/[&<>"']/g, m => map[m]);
 }
 
 function debounce(func, wait = 300) {

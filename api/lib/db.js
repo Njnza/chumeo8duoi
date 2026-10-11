@@ -101,7 +101,12 @@ async function initIndexesAndSeed(db) {
       db.collection('users').createIndex({ username: 1 }, { unique: true }),
       db.collection('shifts').createIndex({ id: 1 }, { unique: true }),
       db.collection('cash_flow').createIndex({ id: 1 }, { unique: true }),
-      db.collection('settings').createIndex({ key: 1 }, { unique: true })
+      db.collection('settings').createIndex({ key: 1 }, { unique: true }),
+      // TTL indexes for auto-cleanup (B3, B4, S5)
+      db.collection('scanner_events').createIndex({ created_at: 1 }, { expireAfterSeconds: 86400 }),
+      db.collection('scanner_photos').createIndex({ created_at: 1 }, { expireAfterSeconds: 86400 }),
+      db.collection('login_attempts').createIndex({ created_at: 1 }, { expireAfterSeconds: 900 }),
+      db.collection('audit_logs').createIndex({ created_at: -1 })
     ]);
 
     // Check if initial seed is needed
