@@ -4,11 +4,11 @@
   "description": "ShopPro - Phần mềm quản lý bán hàng POS cho Windows",
   "main": "main.js",
   "scripts": {
-    "start": "node api/index.js",
-    "web": "node api/index.js",
+    "start": "node backend/app.js",
+    "web": "node backend/app.js",
     "build": "echo 'Build OK'",
     "electron": "electron .",
-    "dev": "node api/index.js",
+    "dev": "node backend/app.js",
     "test": "node tests/api.test.js && node tests/db.test.js && node tests/d2_features.test.js"
   },
   "author": "ShopPro",

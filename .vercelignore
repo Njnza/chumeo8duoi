@@ -1,0 +1,9 @@
+# Ignored by Vercel Cloud Deployment
+.git
+tests/
+*.log
+*.sqlite
+main.js
+preload.js
+server/
+ANALYSIS_REPORT.md
