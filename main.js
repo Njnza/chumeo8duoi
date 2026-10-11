@@ -656,6 +656,14 @@ function setupIPC() {
     }
   });
 
+  // -- Audit Logs --
+  ipcMain.handle('audit:getLogs', async () => {
+    return [];
+  });
+  ipcMain.handle('audit:getActions', async () => {
+    return [];
+  });
+
   // -- Print --
   ipcMain.handle('print:receipt', async (_, html) => {
     const printWindow = new BrowserWindow({

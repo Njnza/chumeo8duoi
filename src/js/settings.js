@@ -474,10 +474,10 @@
         <!-- App info -->
         <div class="settings-section mt-xl">
           <h3>ℹ️ Thông Tin Ứng Dụng</h3>
-          <div class="flex gap-xl text-secondary" style="font-size:13px;">
-            <div>Phiên bản: <strong>Shop Desktop v2.2</strong></div>
-            <div>Database: <strong>SQLite (better-sqlite3 Native)</strong></div>
-            <div>Framework: <strong>Electron</strong></div>
+          <div class="flex gap-xl text-secondary" style="font-size:13px; flex-wrap:wrap;">
+            <div>Phiên bản: <strong>Shop Desktop v2.2.0</strong></div>
+            <div>Môi trường: <strong>${(window.api && window.api.window) ? 'Electron Desktop' : 'Web Browser (Cloud PWA)'}</strong></div>
+            <div>Cơ sở dữ liệu: <strong>${(window.api && window.api.window) ? 'SQLite (better-sqlite3)' : 'MongoDB Atlas Cloud'}</strong></div>
           </div>
         </div>
       </div>
@@ -1229,11 +1229,19 @@
     if (!tbody) return;
 
     try {
+      if (!api || typeof api.getAuditLogs !== 'function') {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:20px;">Tính năng nhật ký hoạt động trên nền tảng Web / Cloud</td></tr>';
+        return;
+      }
+
       const action = document.getElementById('sAuditActionFilter')?.value || '';
       const params = { limit: 50 };
       if (action) params.action = action;
 
-      const logs = await api.getAuditLogs(params);
+      const res = await api.getAuditLogs(params);
+      // Safely handle both { logs: [...] } format and raw array [...] format
+      const logs = Array.isArray(res) ? res : (res && Array.isArray(res.logs) ? res.logs : []);
+
       if (!logs || logs.length === 0) {
         tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted" style="padding:20px;">Chưa có bản ghi hoạt động nào</td></tr>';
         return;
@@ -1241,31 +1249,38 @@
 
       tbody.innerHTML = logs.map(l => {
         const timeStr = l.created_at ? new Date(l.created_at).toLocaleString('vi-VN') : '—';
-        let actionBadge = `<span class="badge badge-info">${escapeHtml(l.action)}</span>`;
-        if (l.action.includes('failed') || l.action.includes('cancel')) {
+        let actionBadge = `<span class="badge badge-info">${escapeHtml(l.action || 'info')}</span>`;
+        const actStr = String(l.action || '').toLowerCase();
+        if (actStr.includes('failed') || actStr.includes('cancel') || actStr.includes('delete') || actStr.includes('blocked')) {
           actionBadge = `<span class="badge badge-danger">${escapeHtml(l.action)}</span>`;
-        } else if (l.action.includes('login') || l.action.includes('create')) {
+        } else if (actStr.includes('login') || actStr.includes('create')) {
           actionBadge = `<span class="badge badge-success">${escapeHtml(l.action)}</span>`;
-        } else if (l.action.includes('restore') || l.action.includes('return')) {
+        } else if (actStr.includes('restore') || actStr.includes('return') || actStr.includes('update')) {
           actionBadge = `<span class="badge badge-warning">${escapeHtml(l.action)}</span>`;
         }
 
         let detailStr = '';
-        if (l.details) {
+        if (l.description) {
+          detailStr = escapeHtml(l.description);
+        } else if (l.details) {
           if (typeof l.details === 'object') {
-            detailStr = Object.entries(l.details).map(([k, v]) => `${k}: <strong>${v}</strong>`).join(' | ');
+            detailStr = Object.entries(l.details).map(([k, v]) => `${k}: <strong>${escapeHtml(String(v))}</strong>`).join(' | ');
           } else {
-            detailStr = String(l.details);
+            detailStr = escapeHtml(String(l.details));
           }
         }
+
+        const username = l.username || l.user?.username || l.user_name || 'System';
+        const role = l.role || l.user?.role || '—';
+        const ip = l.ip || l.client_ip || '127.0.0.1';
 
         return `
           <tr>
             <td style="font-size:11.5px; white-space:nowrap;">${timeStr}</td>
-            <td><strong>${escapeHtml(l.username || 'System')}</strong> <span class="text-secondary" style="font-size:10px;">(${escapeHtml(l.role || '—')})</span></td>
+            <td><strong>${escapeHtml(username)}</strong> <span class="text-secondary" style="font-size:10px;">(${escapeHtml(role)})</span></td>
             <td>${actionBadge}</td>
             <td style="font-size:12px;">${detailStr || '—'}</td>
-            <td style="font-size:11px; font-family:monospace;">${escapeHtml(l.ip || '127.0.0.1')}</td>
+            <td style="font-size:11px; font-family:monospace;">${escapeHtml(ip)}</td>
           </tr>
         `;
       }).join('');

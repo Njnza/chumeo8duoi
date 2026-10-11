@@ -380,7 +380,8 @@
     saveProductImage: (fileData) => Promise.resolve({ success: true, relativePath: fileData }),
 
     // -- Audit Logs (T2) --
-    getAuditLogs: (filters) => request(`/api/audit-logs${toQueryString(filters)}`),
+    getAuditLogs: (filters) =>
+      request(`/api/audit-logs${toQueryString(filters)}`).then(r => (r && Array.isArray(r.logs) ? r.logs : r)),
     getAuditActions: () => request('/api/audit-logs/actions'),
 
     // -- Excel Export (T7) --

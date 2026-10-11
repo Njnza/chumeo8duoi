@@ -113,6 +113,10 @@ contextBridge.exposeInMainWorld('api', {
   backup: () => ipcRenderer.invoke('db:backup'),
   restore: () => ipcRenderer.invoke('db:restore'),
 
+  // -- Audit Logs --
+  getAuditLogs: (filters) => ipcRenderer.invoke('audit:getLogs', filters),
+  getAuditActions: () => ipcRenderer.invoke('audit:getActions'),
+
   // -- Print --
   printReceipt: (html) => ipcRenderer.invoke('print:receipt', html),
 

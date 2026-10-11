@@ -4,22 +4,22 @@
    Enables offline-first selling, instant asset caching, and notifications
    ============================================ */
 
-const CACHE_NAME = 'shoppro-pos-v4';
+const CACHE_NAME = 'shoppro-pos-v5';
 const CORE_ASSETS = [
   './',
   './index.html',
   './css/app.css',
-  './js/app.js?v=2.2.0',
-  './js/api-client.js?v=2.2.0',
-  './js/pos.js?v=2.2.0',
-  './js/products.js?v=2.2.0',
-  './js/orders.js?v=2.2.0',
-  './js/customers.js?v=2.2.0',
-  './js/reports.js?v=2.2.0',
-  './js/settings.js?v=2.2.0',
-  './js/offline-store.js?v=2.2.0',
-  './js/i18n.js?v=2.2.0',
-  './js/pdf-exporter.js?v=2.2.0',
+  './js/app.js?v=2.2.1',
+  './js/api-client.js?v=2.2.1',
+  './js/pos.js?v=2.2.1',
+  './js/products.js?v=2.2.1',
+  './js/orders.js?v=2.2.1',
+  './js/customers.js?v=2.2.1',
+  './js/reports.js?v=2.2.1',
+  './js/settings.js?v=2.2.1',
+  './js/offline-store.js?v=2.2.1',
+  './js/i18n.js?v=2.2.1',
+  './js/pdf-exporter.js?v=2.2.1',
   './manifest.json',
   './icon.svg'
 ];
