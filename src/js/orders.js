@@ -643,6 +643,10 @@
     }
   }
 
+  async function refresh() {
+    await loadOrders();
+  }
+
   registerPage('orders', {
     render, init, viewOrder, cancelOrder, printOrder, exportExcel, exportPdfReceipt,
     openReturnModal, searchOrderForReturn, recalcReturnTotal, submitOrderReturn,

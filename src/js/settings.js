@@ -1288,6 +1288,14 @@
     }
   }
 
+  async function openPluginsFolder() {
+    if (window.pluginBridge && typeof window.pluginBridge.openPluginsFolder === 'function') {
+      await window.pluginBridge.openPluginsFolder();
+    } else {
+      showToast('info', 'Plugins', 'Thư mục plugins nằm trong thư mục gốc của ứng dụng.');
+    }
+  }
+
   registerPage('settings', {
     render, init, saveAll, doBackup, doRestore, onRestoreFileSelected, loadAuditLogs, onLanguageChange, onCurrencyChange,
     addTierRow, removeTierRow, loadUsersList, openAddUserModal, openEditUserModal, saveUserForm, deleteUserAccount,
