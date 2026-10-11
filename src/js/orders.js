@@ -10,6 +10,11 @@
   let dateFrom = '';
   let dateTo = '';
 
+  function cleanProductName(name) {
+    if (!name) return '';
+    return String(name).replace(/\ufffdo/g, 'Áo').replace(/\ufffd/g, '');
+  }
+
   function render() {
     const today = new Date().toISOString().split('T')[0];
 
@@ -188,7 +193,7 @@
                 <tbody>
                   ${(order.items || []).map(item => `
                     <tr>
-                      <td>${escapeHtml(item.product_name)}</td>
+                      <td>${escapeHtml(cleanProductName(item.product_name))}</td>
                       <td>${formatCurrency(item.price)}</td>
                       <td>${item.quantity}</td>
                       <td class="fw-600">${formatCurrency(item.subtotal)}</td>
@@ -279,7 +284,7 @@
           <div class="line"></div>
           <table>
             ${(order.items || []).map(item => `
-              <tr><td colspan="2">${item.product_name}</td></tr>
+              <tr><td colspan="2">${escapeHtml(cleanProductName(item.product_name))}</td></tr>
               <tr><td>${item.quantity} x ${new Intl.NumberFormat('vi-VN').format(item.price)}</td><td class="right">${new Intl.NumberFormat('vi-VN').format(item.subtotal)}</td></tr>
             `).join('')}
           </table>
@@ -400,7 +405,7 @@
                   return `
                     <tr>
                       <td>
-                        <div class="fw-600">${escapeHtml(it.product_name)}</div>
+                        <div class="fw-600">${escapeHtml(cleanProductName(it.product_name))}</div>
                         <div class="text-muted" style="font-size:11px;">${escapeHtml(it.product_sku || '')}</div>
                       </td>
                       <td>${formatNumber(it.price)}₫</td>

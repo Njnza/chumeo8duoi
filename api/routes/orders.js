@@ -55,8 +55,18 @@ router.get('/', async (req, res, next) => {
     if (offset) cursor = cursor.skip(parseInt(offset, 10));
     if (limit) cursor = cursor.limit(parseInt(limit, 10));
 
+    function sanitizeOrder(o) {
+      if (!o || !Array.isArray(o.items)) return o;
+      o.items.forEach(it => {
+        if (it.product_name && it.product_name.includes('\ufffd')) {
+          it.product_name = it.product_name.replace(/\ufffdo/g, 'Áo').replace(/\ufffd/g, '');
+        }
+      });
+      return o;
+    }
+
     const orders = await cursor.toArray();
-    res.json(orders);
+    res.json(orders.map(sanitizeOrder));
   } catch (err) {
     next(err);
   }
@@ -95,6 +105,13 @@ router.get('/:id', async (req, res, next) => {
     const id = parseInt(req.params.id, 10);
     const order = await db.collection('orders').findOne({ id });
     if (!order) return res.status(404).json(null);
+    if (Array.isArray(order.items)) {
+      order.items.forEach(it => {
+        if (it.product_name && it.product_name.includes('\ufffd')) {
+          it.product_name = it.product_name.replace(/\ufffdo/g, 'Áo').replace(/\ufffd/g, '');
+        }
+      });
+    }
     res.json(order);
   } catch (err) {
     next(err);
@@ -124,6 +141,13 @@ router.post('/', validate(schemas.order), async (req, res, next) => {
       }
     }
 
+    // Authoritative product lookup to prevent font/encoding corruption (e.g. \ufffd)
+    const productIds = (data.items || []).map(it => it.product_id ? parseInt(it.product_id, 10) : null).filter(Boolean);
+    const dbProducts = productIds.length > 0
+      ? await db.collection('products').find({ id: { $in: productIds } }).toArray()
+      : [];
+    const prodMap = new Map(dbProducts.map(p => [p.id, p]));
+
     const orderDoc = {
       id: nextId,
       order_code: orderCode,
@@ -143,17 +167,24 @@ router.post('/', validate(schemas.order), async (req, res, next) => {
       shift_id: shiftId,
       status: data.status || 'completed',
       note: data.note || '',
-      items: (data.items || []).map((it, idx) => ({
-        id: idx + 1,
-        product_id: it.product_id ? parseInt(it.product_id, 10) : null,
-        product_name: it.product_name,
-        product_sku: it.product_sku || '',
-        price: Number(it.price) || 0,
-        quantity: Number(it.quantity) || 1,
-        discount: Number(it.discount) || 0,
-        subtotal: Number(it.subtotal) || 0,
-        returned_quantity: 0
-      })),
+      items: (data.items || []).map((it, idx) => {
+        const pid = it.product_id ? parseInt(it.product_id, 10) : null;
+        const dbProd = pid ? prodMap.get(pid) : null;
+        const safeName = (dbProd && dbProd.name)
+          ? dbProd.name
+          : String(it.product_name || '').replace(/\ufffd/g, '');
+        return {
+          id: idx + 1,
+          product_id: pid,
+          product_name: safeName || it.product_name || 'Sản phẩm',
+          product_sku: dbProd?.sku || it.product_sku || '',
+          price: Number(it.price) || 0,
+          quantity: Number(it.quantity) || 1,
+          discount: Number(it.discount) || 0,
+          subtotal: Number(it.subtotal) || 0,
+          returned_quantity: 0
+        };
+      }),
       created_at: new Date()
     };
 
